@@ -1,0 +1,50 @@
+## [Visual Studio / Rider 核心过滤]
+# 编译输出目录
+bin/
+obj/
+out/
+
+# IDE 配置文件
+.vs/
+.idea/
+*.user
+*.userosscache
+*.sln.docstates
+.vsCode/
+
+# 用户特定的 Rider 设置
+.idea/
+*.sln.DotSettings.user
+
+## [Blazor / Web 相关过滤]
+# 静态资源处理缓存
+.sass-cache/
+node_modules/
+# 如果你以后用工具压缩 CSS/JS 产生的临时文件
+*.min.css
+*.min.js
+
+## [.NET 核心过滤]
+# NuGet 包下载目录 (这些应该通过 restore 重新拉取)
+packages/
+# 这种排除方式是为了防止某些特定的 NuGet 包残留
+project.lock.json
+project.assets.json
+
+## [操作系统与临时文件]
+# Windows 缩略图
+Thumbs.db
+ehthumbs.db
+# macOS 隐藏文件
+.DS_Store
+
+## [敏感信息保护 - 重点！]
+# 之后我们要接入 Gemini API，建议把存储 Key 的配置文件排除
+# 比如你可能会建立一个 appsettings.json 或 secrets.json
+appsettings*.json
+secrets.json
+*.env
+
+## [日志与临时数据]
+*.log
+*.tmp
