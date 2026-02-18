@@ -1,0 +1,223 @@
+@page "/world-building"
+@inject SettingsService Settings
+@inject LlmService Llm
+@inject NavigationManager Nav
+@inject LogService Logger
+
+<div class="world-building">
+    <h2>🗺️ 世界构建 (World Building)</h2>
+    
+    @if (!Settings.IsModelConfigured)
+    {
+        <div class="alert-warning">
+            ⚠️ 尚未配置模型信息。请前往 <a href="settings">设置页面</a> 配置 API Key。
+        </div>
+    }
+
+    <div class="split-container">
+        <!-- Background Section -->
+        <div class="section-box">
+            <h3>背景设定 (Background)</h3>
+            <textarea @bind="Settings.Background" disabled="@IsBackgroundLocked" rows="10" placeholder="描述你的故事世界观..."></textarea>
+            <div class="controls">
+                <button class="icon-btn" @onclick="() => IsBackgroundLocked = !IsBackgroundLocked" title="Lock/Unlock">
+                    @(IsBackgroundLocked ? "🔒" : "🔓")
+                </button>
+                <div class="right-controls">
+                     <button class="icon-btn" @onclick="UndoBackground" title="Undo">↩️</button>
+                     <button class="ai-btn" @onclick="EnhanceBackground" disabled="@(IsBackgroundLocked || IsEnhancing)">
+                        ✨ AI 完善
+                     </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Protagonist Section -->
+        <div class="section-box">
+            <h3>主角设定 (Protagonist)</h3>
+            <textarea @bind="Settings.Protagonist" disabled="@IsProtagonistLocked" rows="10" placeholder="描述主角的性格、外貌..."></textarea>
+            <div class="controls">
+                <button class="icon-btn" @onclick="() => IsProtagonistLocked = !IsProtagonistLocked" title="Lock/Unlock">
+                    @(IsProtagonistLocked ? "🔒" : "🔓")
+                </button>
+                 <div class="right-controls">
+                     <button class="icon-btn" @onclick="UndoProtagonist" title="Undo">↩️</button>
+                     <button class="ai-btn" @onclick="EnhanceProtagonist" disabled="@(IsProtagonistLocked || IsEnhancing)">
+                        ✨ AI 完善
+                     </button>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    @if (IsEnhancing)
+    {
+        <div class="loading-overlay">
+            <div class="spinner"></div> AI 正在思考...
+        </div>
+    }
+</div>
+
+@code {
+    private bool IsBackgroundLocked = false;
+    private bool IsProtagonistLocked = false;
+    private bool IsEnhancing = false;
+
+    // Simple undo stack (depth 1 for prototype)
+    private string LastBackground = "";
+    private string LastProtagonist = "";
+
+    protected override void OnInitialized()
+    {
+        LastBackground = Settings.Background;
+        LastProtagonist = Settings.Protagonist;
+    }
+
+    private async Task EnhanceBackground()
+    {
+        if (!VerifyConfig()) return;
+        
+        Logger.Log("User requested background enhancement.");
+        IsEnhancing = true;
+        LastBackground = Settings.Background; // Save state
+        try
+        {
+            Settings.Background = await Llm.EnhanceTextAsync(Settings.Background, "Background");
+        }
+        catch (Exception ex) {_ = ex; /* LlmService logs it, UI just needs to finish loading state */ }
+        finally
+        {
+            IsEnhancing = false;
+        }
+    }
+
+    private async Task EnhanceProtagonist()
+    {
+        if (!VerifyConfig()) return;
+
+        Logger.Log("User requested protagonist enhancement.");
+        IsEnhancing = true;
+        LastProtagonist = Settings.Protagonist; // Save state
+        try
+        {
+            Settings.Protagonist = await Llm.EnhanceTextAsync(Settings.Protagonist, "Protagonist");
+        }
+        catch (Exception ex) { _ = ex; }
+        finally
+        {
+            IsEnhancing = false;
+        }
+    }
+
+    private void UndoBackground() 
+    {
+        Logger.Log("User undid background change.");
+        Settings.Background = LastBackground;
+    }
+
+    private void UndoProtagonist() 
+    {
+        Logger.Log("User undid protagonist change.");
+        Settings.Protagonist = LastProtagonist;
+    }
+
+    private bool VerifyConfig()
+    {
+        if (!Settings.IsModelConfigured)
+        {
+            Logger.Log("Config verification failed in WorldBuilding. Redirecting to settings.", LogLevel.Warning);
+            Nav.NavigateTo("settings");
+            return false;
+        }
+        return true;
+    }
+}
+
+<style>
+    .world-building {
+        height: 100%;
+        display: flex;
+        flex-direction: column;
+    }
+
+    .alert-warning {
+        background-color: #3e2723;
+        color: #ffcc80;
+        padding: 10px;
+        border-radius: 4px;
+        margin-bottom: 20px;
+    }
+    
+    .alert-warning a { color: #ffcc80; text-decoration: underline; }
+
+    .split-container {
+        display: flex;
+        gap: 20px;
+        flex: 1;
+        min-height: 0;
+    }
+
+    .section-box {
+        flex: 1;
+        display: flex;
+        flex-direction: column;
+        background-color: #252526;
+        border-radius: 6px;
+        padding: 15px;
+    }
+
+    h3 { margin-top: 0; color: #dcdcaa; font-size: 16px; }
+
+    textarea {
+        flex: 1;
+        background-color: #1e1e1e;
+        color: #d4d4d4;
+        border: 1px solid #3e3e42;
+        padding: 10px;
+        border-radius: 4px;
+        resize: none;
+        font-family: inherit;
+    }
+    
+    textarea:disabled { opacity: 0.6; cursor: not-allowed; }
+
+    .controls {
+        display: flex;
+        justify-content: space-between;
+        margin-top: 10px;
+    }
+
+    .right-controls { display: flex; gap: 10px; }
+
+    .icon-btn, .ai-btn {
+        background-color: #3e3e42;
+        color: #d4d4d4;
+        border: none;
+        padding: 8px 12px;
+        border-radius: 4px;
+        cursor: pointer;
+    }
+
+    .icon-btn:hover, .ai-btn:hover { background-color: #505055; }
+
+    .ai-btn {
+        background-color: #4CAF50;
+        color: white;
+    }
+    .ai-btn:hover { background-color: #66bb6a; }
+    .ai-btn:disabled { background-color: #2e3e30; color: gray; cursor: default; }
+
+    .loading-overlay {
+        position: fixed;
+        bottom: 20px;
+        right: 20px;
+        background-color: #0e639c;
+        color: white;
+        padding: 10px 20px;
+        border-radius: 20px;
+        box-shadow: 0 4px 6px rgba(0,0,0,0.3);
+        display: flex;
+        align-items: center;
+        gap: 10px;
+    }
+</style>

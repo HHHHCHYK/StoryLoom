@@ -14,8 +14,15 @@ public partial class MainWindow : Window
 
         var serviceCollection = new ServiceCollection();
 
-        serviceCollection.AddBlazorWebView();
+        serviceCollection.AddWpfBlazorWebView();
         serviceCollection.AddBlazorWebViewDeveloperTools();
+        
+        // Register Services
+        serviceCollection.AddSingleton<Services.SettingsService>();
+        serviceCollection.AddSingleton<Services.LogService>();
+        serviceCollection.AddHttpClient();
+        serviceCollection.AddTransient<Services.LlmService>();
+
         Resources.Add("StoryLoom", serviceCollection.BuildServiceProvider());
     }
 }

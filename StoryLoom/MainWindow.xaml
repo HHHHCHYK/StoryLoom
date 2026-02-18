@@ -8,9 +8,9 @@
         mc:Ignorable="d"
         Title="StoryLoom - 故事织机" Height="768" Width="1024">
     <Grid>
-        <blazor:BlazorWebView HostPage="wwwroot/index.html">
+        <blazor:BlazorWebView HostPage="wwwroot/index.html" Services="{DynamicResource StoryLoom}">
             <blazor:BlazorWebView.RootComponents>
-                <blazor:RootComponent Selector="#mainUI" ComponentType="{x:Type local:MainUI}" />
+                <blazor:RootComponent Selector="#app" ComponentType="{x:Type local:BlazorApp}" />
             </blazor:BlazorWebView.RootComponents>
         </blazor:BlazorWebView>
     </Grid>

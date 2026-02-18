@@ -1,0 +1,145 @@
+@page "/"
+@page "/quick-start"
+@inject SettingsService Settings
+@inject LlmService Llm
+@inject NavigationManager Nav
+@inject LogService Logger
+
+<div class="story-generator">
+    <div class="input-panel">
+        <h2>🚀 快速开始 (Quick Start)</h2>
+        
+        <div class="context-preview">
+            <div class="preview-item">
+                <label>背景 (Background)</label>
+                <div class="preview-text">@Truncate(Settings.Background)</div>
+            </div>
+            <div class="preview-item">
+                <label>主角 (Protagonist)</label>
+                <div class="preview-text">@Truncate(Settings.Protagonist)</div>
+            </div>
+            <a href="world-building" class="edit-link">编辑设定</a>
+        </div>
+
+        <div class="form-group start-prompt">
+            <label>本章剧情提示 (User Prompt)</label>
+            <textarea @bind="UserPrompt" rows="6" placeholder="例如：主角在酒馆遇到了一个神秘的机械师..."></textarea>
+        </div>
+
+        <button class="btn-primary" @onclick="StartGeneration" disabled="@IsGenerating">
+            @(IsGenerating ? "生成中..." : "开始织梦 (Generate)")
+        </button>
+    </div>
+
+    <div class="output-panel">
+        <h2>📜 正文画布</h2>
+        <div class="output-box" id="output-scroll">
+            @if (string.IsNullOrWhiteSpace(GeneratedText) && !IsGenerating)
+            {
+                <span class="placeholder">AI 编织的小说内容将在这里流式显示...</span>
+            }
+            else
+            {
+                <div class="generated-content">@GeneratedText</div>
+                if (IsGenerating)
+                {
+                   <span class="cursor">|</span>
+                }
+            }
+        </div>
+    </div>
+</div>
+
+@code {
+    private string UserPrompt { get; set; } = "";
+    private string GeneratedText { get; set; } = "";
+    private bool IsGenerating = false;
+
+    protected override void OnInitialized()
+    {
+        if (!Settings.IsStoryContextReady)
+        {
+             Logger.Log("Story context missing in Generator. Redirecting to WorldBuilding.");
+            Nav.NavigateTo("world-building");
+        }
+    }
+
+    private async Task StartGeneration()
+    {
+        if (string.IsNullOrWhiteSpace(UserPrompt)) return;
+        
+        Logger.Log($"User started story generation. Prompt length: {UserPrompt.Length}");
+        IsGenerating = true;
+        GeneratedText = "";
+
+        try
+        {
+            await foreach (var token in Llm.StreamCompletionAsync(UserPrompt))
+            {
+                GeneratedText += token;
+                StateHasChanged();
+            }
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "StoryGenerator.StartGeneration");
+            GeneratedText += "\n[Error generating story]";
+        }
+        finally
+        {
+            IsGenerating = false;
+            Logger.Log("Story generation finished/stopped.");
+        }
+    }
+
+    private string Truncate(string text)
+    {
+        if (string.IsNullOrEmpty(text)) return "(未设定)";
+        return text.Length > 50 ? text.Substring(0, 50) + "..." : text;
+    }
+}
+
+<style>
+    .story-generator { display: flex; gap: 20px; height: 100%; }
+    
+    .input-panel { flex: 1; display: flex; flex-direction: column; max-width: 350px; }
+    .output-panel { flex: 2; display: flex; flex-direction: column; }
+
+    .context-preview {
+        background-color: #252526;
+        padding: 10px;
+        border-radius: 4px;
+        margin-bottom: 20px;
+        font-size: 12px;
+    }
+
+    .preview-item { margin-bottom: 8px; }
+    .preview-item label { color: #569cd6; font-weight: bold; }
+    .preview-text { color: #aaa; font-style: italic; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .edit-link { display: block; text-align: right; color: #4ec9b0; text-decoration: none; margin-top: 5px; }
+    .edit-link:hover { text-decoration: underline; }
+
+    .start-prompt { flex: 1; display: flex; flex-direction: column; }
+    .start-prompt textarea { flex: 1; }
+
+    .output-box {
+        flex: 1;
+        background-color: #1e1e1e;
+        border: 1px solid #3e3e42;
+        padding: 20px;
+        font-family: 'Segoe UI', serif; 
+        font-size: 16px; 
+        line-height: 1.8;
+        overflow-y: auto;
+        white-space: pre-wrap;
+    }
+
+    .cursor { animation: blink 1s step-end infinite; font-weight: bold; }
+    @@keyframes blink { 50% { opacity: 0; } }
+    
+    /* Reused styles */
+    textarea { width: 100%; background-color: #3c3c3c; color: #d4d4d4; border: 1px solid #555; border-radius: 4px; padding: 10px; resize: none; margin-top: 5px; }
+    label { color: #9cdcfe; font-size: 13px; }
+    .btn-primary { background-color: #0e639c; color: white; border: none; padding: 12px; font-weight: bold; cursor: pointer; border-radius: 4px; margin-top: 10px; }
+    .btn-primary:disabled { background-color: #333; cursor: not-allowed; }
+</style>

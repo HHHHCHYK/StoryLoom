@@ -1,0 +1,53 @@
+@inherits LayoutComponentBase
+
+<div class="app-container">
+    <div class="sidebar">
+        <NavMenu @bind-Collapsed="isSidebarCollapsed" />
+    </div>
+
+    <div class="main">
+        <div class="content px-4">
+            @Body
+        </div>
+    </div>
+</div>
+
+@code {
+    private bool isSidebarCollapsed = false;
+}
+
+<style>
+    :root {
+        --bg-color: #1e1e1e;
+        --text-color: #d4d4d4;
+    }
+
+    body {
+        font-family: 'Segoe UI', sans-serif;
+        background-color: var(--bg-color);
+        color: var(--text-color);
+        margin: 0;
+        padding: 0;
+        overflow: hidden;
+    }
+
+    .app-container {
+        display: flex;
+        height: 100vh;
+        width: 100vw;
+    }
+
+    .main {
+        flex: 1;
+        display: flex;
+        flex-direction: column;
+        overflow: hidden;
+        background-color: #1e1e1e;
+    }
+
+    .content {
+        flex: 1;
+        overflow-y: auto;
+        padding: 20px;
+    }
+</style>

@@ -1,0 +1,140 @@
+<div class="nav-menu @(Collapsed ? "collapsed" : "")">
+    <div class="nav-header">
+        @if (!Collapsed)
+        {
+            <span class="nav-title">StoryLoom</span>
+        }
+        <button class="collapse-btn" @onclick="ToggleCollapse">
+            @(Collapsed ? "☰" : "⬅")
+        </button>
+    </div>
+
+    <nav class="flex-column">
+        <div class="nav-item px-3">
+            <NavLink class="nav-link" href="quick-start" Match="NavLinkMatch.All">
+                <span class="icon">🚀</span>
+                @if (!Collapsed)
+                {
+                    <span class="text">快速开始</span>
+                }
+            </NavLink>
+        </div>
+        
+        <div class="nav-item px-3">
+            <NavLink class="nav-link" href="world-building">
+                <span class="icon">🗺️</span>
+                @if (!Collapsed)
+                {
+                    <span class="text">世界构建</span>
+                }
+            </NavLink>
+        </div>
+
+        <div class="nav-item px-3">
+             <NavLink class="nav-link" href="settings">
+                <span class="icon">⚙️</span>
+                @if (!Collapsed)
+                {
+                    <span class="text">模型设置</span>
+                }
+            </NavLink>
+        </div>
+    </nav>
+</div>
+
+@code {
+    [Parameter]
+    public bool Collapsed { get; set; }
+
+    [Parameter]
+    public EventCallback<bool> CollapsedChanged { get; set; }
+
+    private async Task ToggleCollapse()
+    {
+        Collapsed = !Collapsed;
+        await CollapsedChanged.InvokeAsync(Collapsed);
+    }
+}
+
+<style>
+    .nav-menu {
+        background-color: #252526;
+        height: 100vh;
+        display: flex;
+        flex-direction: column;
+        border-right: 1px solid #3e3e42;
+        transition: width 0.3s ease;
+        width: 250px;
+        overflow: hidden;
+    }
+
+    .nav-menu.collapsed {
+        width: 60px;
+    }
+
+    .nav-header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 10px 15px;
+        height: 50px;
+        background-color: #1e1e1e;
+        border-bottom: 1px solid #3e3e42;
+    }
+
+    .nav-title {
+        color: #d4d4d4;
+        font-weight: bold;
+        white-space: nowrap;
+        overflow: hidden;
+    }
+
+    .collapse-btn {
+        background: none;
+        border: none;
+        color: #d4d4d4;
+        cursor: pointer;
+        padding: 5px;
+        font-size: 16px;
+    }
+    
+    .collapse-btn:hover {
+        color: #ffffff;
+    }
+
+    .nav-item {
+        margin-top: 10px;
+    }
+
+    .nav-link {
+        color: #d4d4d4;
+        text-decoration: none;
+        display: flex;
+        align-items: center;
+        padding: 10px;
+        border-radius: 4px;
+        white-space: nowrap;
+        overflow: hidden;
+    }
+
+    .nav-link:hover {
+        background-color: #37373d;
+        color: #ffffff;
+    }
+
+    .nav-link.active {
+        background-color: #094771;
+        color: #ffffff;
+    }
+
+    .nav-link .icon {
+        margin-right: 10px;
+        min-width: 20px;
+        display: inline-block;
+        text-align: center;
+    }
+
+    .collapsed .nav-link .icon {
+        margin-right: 0;
+    }
+</style>
