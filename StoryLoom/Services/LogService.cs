@@ -3,11 +3,19 @@ using System.IO;
 
 namespace StoryLoom.Services
 {
+    /// <summary>
+    /// 日志服务类。
+    /// 提供基本的文件日志记录功能，支持多线程安全写入，日志按会话或日期分文件存储。
+    /// </summary>
     public class LogService
     {
         private readonly string? _logFilePath;
         private readonly object _lock = new object();
 
+        /// <summary>
+        /// 初始化日志服务。
+        /// 检查并创建 Log 目录，生成当前会话的日志文件路径。
+        /// </summary>
         public LogService()
         {
             try
@@ -31,6 +39,11 @@ namespace StoryLoom.Services
             }
         }
 
+        /// <summary>
+        /// 记录一条日志信息。
+        /// </summary>
+        /// <param name="message">日志内容。</param>
+        /// <param name="level">日志级别（默认 Info）。</param>
         public void Log(string message, LogLevel level = LogLevel.Info)
         {
             if (string.IsNullOrEmpty(_logFilePath)) return;
@@ -50,6 +63,12 @@ namespace StoryLoom.Services
             }
         }
 
+        /// <summary>
+        /// 记录异常详情。
+        /// 包含异常类型、消息、堆栈跟踪以及内部异常信息。
+        /// </summary>
+        /// <param name="ex">异常对象。</param>
+        /// <param name="context">异常发生的上下文描述。</param>
         public void LogError(Exception ex, string context = "")
         {
             var message = $"EXCEPTION {context}: {ex.GetType().Name}: {ex.Message}\nStack Trace: {ex.StackTrace}";

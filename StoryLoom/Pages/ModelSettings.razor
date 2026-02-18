@@ -64,6 +64,9 @@
     private bool TestSuccess = false;
     private bool ShowDevMode = false;
 
+    /// <summary>
+    /// 测试与 LLM API 的连接，并根据结果更新 UI。
+    /// </summary>
     private async Task TestConnection()
     {
         Logger.Log("User initiated connection test.");

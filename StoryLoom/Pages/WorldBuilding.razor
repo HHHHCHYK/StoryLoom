@@ -59,11 +59,12 @@
 </div>
 
 @code {
+    // UI 状态标志
     private bool IsBackgroundLocked = false;
     private bool IsProtagonistLocked = false;
     private bool IsEnhancing = false;
 
-    // Simple undo stack (depth 1 for prototype)
+    // 简单的撤销栈 (目前仅支持单步撤销)，用于回滚 AI 的修改
     private string LastBackground = "";
     private string LastProtagonist = "";
 
@@ -73,31 +74,39 @@
         LastProtagonist = Settings.Protagonist;
     }
 
+    /// <summary>
+    /// 调用 LLM 服务来润色背景描述。
+    /// 处理 UI 状态（加载中、锁定）并记录错误日志。
+    /// </summary>
     private async Task EnhanceBackground()
     {
         if (!VerifyConfig()) return;
         
         Logger.Log("User requested background enhancement.");
         IsEnhancing = true;
-        LastBackground = Settings.Background; // Save state
+        LastBackground = Settings.Background; // 保存当前状态以便撤销
         try
         {
+            // 调用 LLM 服务，使用 "Background" 作为上下文类型
             Settings.Background = await Llm.EnhanceTextAsync(Settings.Background, "Background");
         }
-        catch (Exception ex) {_ = ex; /* LlmService logs it, UI just needs to finish loading state */ }
+        catch (Exception ex) {_ = ex; /* LlmService 会记录日志，UI 只需恢复状态 */ }
         finally
         {
             IsEnhancing = false;
         }
     }
 
+    /// <summary>
+    /// 调用 LLM 服务来润色主角描述。
+    /// </summary>
     private async Task EnhanceProtagonist()
     {
         if (!VerifyConfig()) return;
 
         Logger.Log("User requested protagonist enhancement.");
         IsEnhancing = true;
-        LastProtagonist = Settings.Protagonist; // Save state
+        LastProtagonist = Settings.Protagonist; // 保存状态以便撤销
         try
         {
             Settings.Protagonist = await Llm.EnhanceTextAsync(Settings.Protagonist, "Protagonist");
@@ -121,6 +130,10 @@
         Settings.Protagonist = LastProtagonist;
     }
 
+    /// <summary>
+    /// 在尝试 AI 操作前，检查 API 配置是否有效。
+    /// 如果配置缺失，将跳转到设置页面。
+    /// </summary>
     private bool VerifyConfig()
     {
         if (!Settings.IsModelConfigured)

@@ -57,6 +57,8 @@
 
     protected override void OnInitialized()
     {
+        // 如果故事上下文缺失（如背景或主角未设定），重定向到世界构建页面。
+        // 故事生成强依赖于这些上下文。
         if (!Settings.IsStoryContextReady)
         {
              Logger.Log("Story context missing in Generator. Redirecting to WorldBuilding.");
@@ -64,6 +66,10 @@
         }
     }
 
+    /// <summary>
+    /// 使用 LLM 服务开始故事生成流程。
+    /// 消费流式响应 (`IAsyncEnumerable`) 并实时更新 UI，实现打字机效果。
+    /// </summary>
     private async Task StartGeneration()
     {
         if (string.IsNullOrWhiteSpace(UserPrompt)) return;
@@ -74,10 +80,11 @@
 
         try
         {
+            // 遍历 LLM 服务返回的异步流
             await foreach (var token in Llm.StreamCompletionAsync(UserPrompt))
             {
                 GeneratedText += token;
-                StateHasChanged();
+                StateHasChanged(); // 强制刷新 UI 以显示最新生成的片段
             }
         }
         catch (Exception ex)

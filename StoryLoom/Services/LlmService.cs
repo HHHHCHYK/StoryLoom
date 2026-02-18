@@ -7,12 +7,22 @@ using System.Threading.Tasks;
 
 namespace StoryLoom.Services
 {
+    /// <summary>
+    /// 大语言模型 (LLM) 服务类。
+    /// 负责通过 HTTP API 与大模型进行交互，包括测试连接、流式生成文本和文本润色等功能。
+    /// </summary>
     public class LlmService
     {
         private readonly SettingsService _settings;
         private readonly HttpClient _httpClient;
         private readonly LogService _logger;
 
+        /// <summary>
+        /// 初始化 <see cref="LlmService"/> 类的新实例。
+        /// </summary>
+        /// <param name="settings">配置服务，用于获取 API URL、Key 等设置。</param>
+        /// <param name="httpClient">HTTP 客户端，用于发送网络请求。</param>
+        /// <param name="logger">日志服务，用于系统日志记录。</param>
         public LlmService(SettingsService settings, HttpClient httpClient, LogService logger)
         {
             _settings = settings;
@@ -20,6 +30,13 @@ namespace StoryLoom.Services
             _logger = logger;
         }
 
+        /// <summary>
+        /// 测试与 LLM API 的连接状态。
+        /// 发送一个简单的握手请求以验证配置是否正确。
+        /// </summary>
+        /// <returns>若连接成功，返回 API 的响应内容。</returns>
+        /// <exception cref="InvalidOperationException">当 API 未配置时抛出。</exception>
+        /// <exception cref="HttpRequestException">当网络请求失败或 API 返回错误时抛出。</exception>
         public async Task<string> TestConnectionAsync()
         {
             _logger.Log($"Testing connection to {_settings.ApiUrl} with model {_settings.ModelName}...");
@@ -59,6 +76,12 @@ namespace StoryLoom.Services
             }
         }
 
+        /// <summary>
+        /// 流式生成文本。
+        /// 通过 Server-Sent Events (SSE) 接收大模型的流式响应，实现打字机效果。
+        /// </summary>
+        /// <param name="userPrompt">用户的输入提示词。</param>
+        /// <returns>异步字符串流，包含按顺序生成的文本片段。</returns>
         public async IAsyncEnumerable<string> StreamCompletionAsync(string userPrompt)
         {
             _logger.Log($"Starting stream completion for prompt: {userPrompt.Substring(0, Math.Min(50, userPrompt.Length))}...");
@@ -132,6 +155,13 @@ namespace StoryLoom.Services
             }
         }
 
+        /// <summary>
+        /// 文本润色/扩写功能。
+        /// 将简短的描述扩展为更丰富、生动的内容。此方法使用非流式请求。
+        /// </summary>
+        /// <param name="input">需要润色的原始文本。</param>
+        /// <param name="type">文本类型（如 "Background" 背景, "Protagonist" 主角），用于构建特定的 Prompt。</param>
+        /// <returns>润色后的完整文本。</returns>
         public async Task<string> EnhanceTextAsync(string input, string type)
         {
              _logger.Log($"Enhancing text [{type}]...");
@@ -171,6 +201,13 @@ namespace StoryLoom.Services
             }
         }
 
+        /// <summary>
+        /// 创建 HTTP 请求的辅助方法。
+        /// 负责构建请求 URL（自动处理 /chat/completions 路径）和序列化请求体。
+        /// </summary>
+        /// <param name="messages">聊天消息历史列表。</param>
+        /// <param name="stream">是否开启流式模式。</param>
+        /// <returns>配置好的 HttpRequestMessage 对象。</returns>
         private HttpRequestMessage CreateRequest(IEnumerable<ChatMessage> messages, bool stream)
         {
             var endpoint = _settings.ApiUrl;
