@@ -23,6 +23,7 @@ public partial class MainWindow : Window
         // Singleton (单例): 整个应用程序生命周期内只有一个实例 (用于状态管理)
         serviceCollection.AddSingleton<Services.SettingsService>();
         serviceCollection.AddSingleton<Services.LogService>();
+        serviceCollection.AddSingleton<Services.ConversationService>();
         
         // HTTP 客户端和 Transient (瞬态) 服务
         serviceCollection.AddHttpClient();

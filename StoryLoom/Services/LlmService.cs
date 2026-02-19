@@ -77,32 +77,83 @@ namespace StoryLoom.Services
         }
 
         /// <summary>
+        /// 文本摘要功能。
+        /// 将一段长文本或对话历史总结为精炼的摘要，保留关键信息。
+        /// </summary>
+        /// <param name="textToSummarize">需要总结的文本。</param>
+        /// <param name="existingSummary">现有的摘要（如果有），将新summary合并进去。</param>
+        /// <returns>更新后的摘要。</returns>
+        public async Task<string> SummarizeTextAsync(string textToSummarize, string existingSummary = "")
+        {
+             _logger.Log($"Summarizing text (Length: {textToSummarize.Length})...");
+             if (!_settings.IsModelConfigured)
+             {
+                _logger.Log("SummarizeText failed: Configuration missing.", LogLevel.Warning);
+                return existingSummary + "\n[Summary failed: Config missing]";
+             }
+
+            string prompt;
+            if (string.IsNullOrWhiteSpace(existingSummary))
+            {
+                prompt = $"Please summarize the following story/conversation content concisely, retaining key plot points, character development, and important facts:\n\n{textToSummarize}";
+            }
+            else
+            {
+                prompt = $"Please update the existing summary with the new content. \n\nExisting Summary:\n{existingSummary}\n\nNew Content to Merge:\n{textToSummarize}\n\nProvide a single, consolidated summary.";
+            }
+            
+            var request = CreateRequest(new[]
+            {
+                new ChatMessage { Role = "user", Content = prompt }
+            }, stream: false);
+
+            try
+            {
+                using var response = await _httpClient.SendAsync(request);
+                 if (!response.IsSuccessStatusCode)
+                {
+                     var error = await response.Content.ReadAsStringAsync();
+                     _logger.Log($"SummarizeText Error: {response.StatusCode} - {error}", LogLevel.Error);
+                     // Return old summary if update fails, maybe append an error marker or just ignore
+                     return existingSummary; 
+                }
+
+                var json = await response.Content.ReadAsStringAsync();
+                using var doc = JsonDocument.Parse(json);
+                var summary = doc.RootElement.GetProperty("choices")[0].GetProperty("message").GetProperty("content").GetString() ?? existingSummary;
+                _logger.Log($"Text summarized successfully (Length: {summary.Length}).");
+                return summary;
+            }
+            catch (Exception ex)
+            {
+                 _logger.LogError(ex, "SummarizeTextAsync");
+                 return existingSummary;
+            }
+        }
+
+        /// <summary>
         /// 流式生成文本。
         /// 通过 Server-Sent Events (SSE) 接收大模型的流式响应，实现打字机效果。
         /// </summary>
-        /// <param name="userPrompt">用户的输入提示词。</param>
+        /// <param name="contextMessages">完整的聊天上下文（包括 System Prompt, History, User Prompt）。</param>
         /// <returns>异步字符串流，包含按顺序生成的文本片段。</returns>
-        public async IAsyncEnumerable<string> StreamCompletionAsync(string userPrompt)
+        public async IAsyncEnumerable<string> StreamCompletionAsync(List<ChatMessage> contextMessages)
         {
-            _logger.Log($"Starting stream completion for prompt: {userPrompt.Substring(0, Math.Min(50, userPrompt.Length))}...");
+            _logger.Log($"Starting stream completion with {contextMessages.Count} messages...");
             if (!_settings.IsModelConfigured)
             {
                 _logger.Log("StreamCompletion failed: Configuration missing.", LogLevel.Warning);
                 yield break;
             }
 
-            var messages = new List<ChatMessage>();
-            
-            // Add System Prompt (World Context) if available
-            if (_settings.IsStoryContextReady)
+            // Validating context
+            if (contextMessages == null || contextMessages.Count == 0)
             {
-                var systemContent = $"You are a story co-author. \nWorld Background: {_settings.Background}\nProtagonist: {_settings.Protagonist}";
-                messages.Add(new ChatMessage { Role = "system", Content = systemContent });
+                 yield return "[Error: No context provided]";
+                 yield break;
             }
-            
-            messages.Add(new ChatMessage { Role = "user", Content = userPrompt });
 
-            var request = CreateRequest(messages, stream: true);
+            var request = CreateRequest(contextMessages, stream: true);
             using var response = await _httpClient.SendAsync(request, HttpCompletionOption.ResponseHeadersRead);
             
             if (!response.IsSuccessStatusCode)

@@ -21,6 +21,9 @@ namespace StoryLoom.Services
         /// <summary>最大上下文窗口大小 (Tokens)。</summary>
         public int MaxContextWindow { get; set; } = 4096;
 
+        /// <summary>最大历史对话轮数 (Turns)。超过此数量将触发总结。</summary>
+        public int MaxHistoryTurns { get; set; } = 10;
+
         // Story Context
         /// <summary>故事背景设定。</summary>
         public string Background { get; set; } = "";
