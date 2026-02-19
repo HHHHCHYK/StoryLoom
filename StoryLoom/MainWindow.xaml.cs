@@ -26,10 +26,19 @@ public partial class MainWindow : Window
         serviceCollection.AddSingleton<Services.ConversationService>();
         
         // HTTP 客户端和 Transient (瞬态) 服务
-        serviceCollection.AddHttpClient();
+        serviceCollection.AddHttpClient<Services.LlmClient>();
         serviceCollection.AddTransient<Services.LlmService>();
 
         // 构建服务提供者，并将其添加到窗口资源中，以便 BlazorWebView 可以找到它
-        Resources.Add("StoryLoom", serviceCollection.BuildServiceProvider());
+        var serviceProvider = serviceCollection.BuildServiceProvider();
+        Resources.Add("Services", serviceProvider);
+
+        // 初始化：加载配置
+        var settingsService = serviceProvider.GetRequiredService<Services.SettingsService>();
+        settingsService.LoadConfig();
+
+        // 初始化：加载上次的存档
+        var conversationService = serviceProvider.GetRequiredService<Services.ConversationService>();
+        _ = conversationService.LoadLatestSaveAsync();
     }
 }

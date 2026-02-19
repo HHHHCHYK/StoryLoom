@@ -12,10 +12,14 @@ namespace StoryLoom.Services
         private readonly LlmService _llmService;
         private readonly SettingsService _settingsService;
         private readonly LogService _logger;
-        private const string ConversationHistoryFile = "conversation_history.json";
-        private const string ArchivedConversationsDir = "archived_conversations";
+        // Persistence Constants
+        private const string SavesDirectory = "Saves";
+        private const string WorldFile = "world.json";
+        private const string ChatFile = "chat.json";
 
         public Conversation CurrentConversation { get; private set; } = new Conversation();
+        public string CurrentSaveName { get; private set; } = "";
+
         public event Action? OnConversationUpdated;
 
         public ConversationService(LlmService llmService, SettingsService settingsService, LogService logger)
@@ -23,14 +27,14 @@ namespace StoryLoom.Services
             _llmService = llmService;
             _settingsService = settingsService;
             _logger = logger;
-            LoadHistory();
+            // LoadHistory(); // Removed legacy single-file load
         }
 
         public async Task AddUserMessageAsync(string content)
         {
             CurrentConversation.Messages.Add(new ChatMessage { Role = "user", Content = content });
             NotifyUpdate();
-            await SaveHistoryAsync();
+            await SaveCurrentStateAsync();
             await CheckAndSummarizeAsync();
         }
 
@@ -38,82 +42,162 @@ namespace StoryLoom.Services
         {
             CurrentConversation.Messages.Add(new ChatMessage { Role = "assistant", Content = content });
             NotifyUpdate();
-            await SaveHistoryAsync();
+            await SaveCurrentStateAsync();
             await CheckAndSummarizeAsync();
         }
 
         public async Task StartNewConversationAsync()
         {
-            _logger.Log("Starting new conversation...");
-            
-            // Archive current conversation
-            if (CurrentConversation.Messages.Any())
-            {
-                // Summarize current conversation for context
-                string summary = await SummarizeConversationAsync(CurrentConversation);
-                
-                // Ensure the final summary is saved to the conversation object before archiving
-                CurrentConversation.Summary = summary;
-                
-                await ArchiveConversationAsync(CurrentConversation);
+            _logger.Log("Starting new conversation/save...");
 
-                // Start new conversation with summary
-                CurrentConversation = new Conversation
-                {
-                    Id = Guid.NewGuid().ToString(),
-                    Title = "New Story", // Default title
-                    CreatedAt = DateTime.Now,
-                    Summary = summary, // Pass previous context
-                    LastSummarizedIndex = 0 // Reset summary index for new conversation
-                };
-            }
-            else
-            {
-                // Just reset if empty
-                 CurrentConversation = new Conversation
-                {
-                     Id = Guid.NewGuid().ToString(),
-                     CreatedAt = DateTime.Now
-                };
-            }
+            // 1. Generate unique save name (e.g., Save_yyyyMMdd_HHmmss)
+            string saveName = $"Save_{DateTime.Now:yyyyMMdd_HHmmss}";
+            CurrentSaveName = saveName;
             
+            // 2. Clear state
+            CurrentConversation = new Conversation
+            {
+                Id = Guid.NewGuid().ToString(),
+                Title = "New Story",
+                CreatedAt = DateTime.Now
+            };
+            
+            // Reset World Settings in SettingsService (User needs to input new ones)
+            _settingsService.Background = "";
+            _settingsService.Protagonist = "";
+            _settingsService.NotifyStateChanged();
+
+            // 3. Create Directory
+            string savePath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, SavesDirectory, saveName);
+            Directory.CreateDirectory(savePath);
+
+            // 4. Update Global Config
+            _settingsService.LastSaveName = saveName;
+            _settingsService.SaveConfig();
+
             NotifyUpdate();
-            await SaveHistoryAsync();
+            await SaveCurrentStateAsync();
+        }
+
+        public async Task LoadLatestSaveAsync()
+        {
+             string lastSave = _settingsService.LastSaveName;
+             if (!string.IsNullOrWhiteSpace(lastSave))
+             {
+                 string savePath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, SavesDirectory, lastSave);
+                 if (Directory.Exists(savePath))
+                 {
+                     await LoadSaveAsync(lastSave);
+                 }
+                 else
+                 {
+                     _logger.Log($"Last save '{lastSave}' not found on disk. Starting new conversation.");
+                     await StartNewConversationAsync();
+                 }
+             }
+             else
+             {
+                 _logger.Log("No last save found in config. Starting new conversation.");
+                 await StartNewConversationAsync();
+             }
+        }
+
+        public async Task LoadSaveAsync(string saveName)
+        {
+            try
+            {
+                string savePath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, SavesDirectory, saveName);
+                if (!Directory.Exists(savePath))
+                {
+                    _logger.Log($"Save directory not found: {savePath}", LogLevel.Warning);
+                    return;
+                }
+
+                CurrentSaveName = saveName;
+                _logger.Log($"Loading save: {saveName}");
+
+                // 1. Load Chat
+                string chatPath = Path.Combine(savePath, ChatFile);
+                if (File.Exists(chatPath))
+                {
+                    string chatJson = await File.ReadAllTextAsync(chatPath);
+                    CurrentConversation = JsonSerializer.Deserialize<Conversation>(chatJson) ?? new Conversation();
+                }
+                else
+                {
+                    CurrentConversation = new Conversation();
+                }
+
+                // 2. Load World
+                string worldPath = Path.Combine(savePath, WorldFile);
+                if (File.Exists(worldPath))
+                {
+                    string worldJson = await File.ReadAllTextAsync(worldPath);
+                    var worldData = JsonSerializer.Deserialize<WorldSettings>(worldJson);
+                    if (worldData != null)
+                    {
+                        _settingsService.Background = worldData.Background;
+                        _settingsService.Protagonist = worldData.Protagonist;
+                        _settingsService.NotifyStateChanged();
+                    }
+                }
+
+                NotifyUpdate();
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, $"Failed to load save: {saveName}");
+            }
         }
 
         public void UpdateTitle(string newTitle)
         {
             CurrentConversation.Title = newTitle;
             NotifyUpdate();
-            _ = SaveHistoryAsync();
+            _ = SaveCurrentStateAsync();
         }
 
-        public List<ChatMessage> GetContextForLlm()
+        public List<ChatMessage> GetHistoryForLlm()
         {
-            // Implementation of context retrieval: System Prompt + Summary + Recent Unsummarized Messages
-            var context = new List<ChatMessage>();
+            // Get recent history messages starting from the last summarized index
+            // This excludes the system prompt, which is now handled by LlmService
+            return CurrentConversation.Messages.Skip(CurrentConversation.LastSummarizedIndex).ToList();
+        }
 
-            // 1. System Prompt construction
-            var systemContent = $"You are a story co-author. \nWorld Background: {_settingsService.Background}\nProtagonist: {_settingsService.Protagonist}";
-            
-            if (!string.IsNullOrWhiteSpace(CurrentConversation.Summary))
+        public async Task SaveCurrentStateAsync()
+        {
+            if (string.IsNullOrWhiteSpace(CurrentSaveName))
             {
-                systemContent += $"\n\nPrevious Story Summary: {CurrentConversation.Summary}";
+                _logger.Log("No save name specified. Cannot save state.", LogLevel.Error);
+                return;
             }
 
-            context.Add(new ChatMessage { Role = "system", Content = systemContent });
+            try
+            {
+                string savePath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, SavesDirectory, CurrentSaveName);
+                if (!Directory.Exists(savePath)) Directory.CreateDirectory(savePath);
 
-            // 2. Recent History (Messages that haven't been forcefully summarized out implies we keep all messages in UI, 
-            // but for LLM we might want to drop very old ones if they are covered by summary? 
-            // The plan said: "Summarize the oldest messages... maintain context within token limits".
-            // Since we update Summary incrementally, we should theoretically only send the Summary + Messages AFTER LastSummarizedIndex?
-            // However, to ensure smooth continuity, we might want some overlap or just trust the summary + active window.
-            // Let's send messages starting from LastSummarizedIndex.
-            
-            var recentMessages = CurrentConversation.Messages.Skip(CurrentConversation.LastSummarizedIndex).ToList();
-            context.AddRange(recentMessages);
+                // 1. Save Chat
+                string chatPath = Path.Combine(savePath, ChatFile);
+                string chatJson = JsonSerializer.Serialize(CurrentConversation, new JsonSerializerOptions { WriteIndented = true });
+                await File.WriteAllTextAsync(chatPath, chatJson);
 
-            return context;
+                // 2. Save World
+                var worldData = new WorldSettings
+                {
+                    Background = _settingsService.Background,
+                    Protagonist = _settingsService.Protagonist
+                };
+                string worldPath = Path.Combine(savePath, WorldFile);
+                string worldJson = JsonSerializer.Serialize(worldData, new JsonSerializerOptions { WriteIndented = true });
+                await File.WriteAllTextAsync(worldPath, worldJson);
+                
+                _logger.Log($"Saved state to {CurrentSaveName}");
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Failed to save current state");
+            }
         }
 
         private async Task CheckAndSummarizeAsync()
@@ -128,7 +212,8 @@ namespace StoryLoom.Services
                 _logger.Log($"Conversation new messages ({unsummarizedCount}) exceeded limit. Summarizing...");
                 
                 // We want to keep the last 'keepCount' messages raw for context
-                int keepCount = 4; // Keep last 2 turns
+                // Update: User requested to discard previous context after summary, so we keep 0 (summarize everything).
+                int keepCount = 0;
                 
                 // The range to summarize is from LastSummarizedIndex up to (Total - KeepCount)
                 int endIndex = totalMessages - keepCount;
@@ -151,7 +236,7 @@ namespace StoryLoom.Services
                 _logger.Log($"Summarized {messagesToSummarize.Count} messages. New LastSummarizedIndex: {CurrentConversation.LastSummarizedIndex}");
 
                 NotifyUpdate();
-                await SaveHistoryAsync();
+                await SaveCurrentStateAsync();
             }
         }
 
@@ -169,50 +254,17 @@ namespace StoryLoom.Services
              return await _llmService.SummarizeTextAsync(text, conversation.Summary);
         }
 
-        private async Task ArchiveConversationAsync(Conversation conversation)
-        {
-             if (!Directory.Exists(ArchivedConversationsDir))
-             {
-                 Directory.CreateDirectory(ArchivedConversationsDir);
-             }
-             string filename = Path.Combine(ArchivedConversationsDir, $"conversation_{conversation.Id}_{DateTime.Now:yyyyMMddHHmmss}.json");
-             string json = JsonSerializer.Serialize(conversation);
-             await File.WriteAllTextAsync(filename, json);
-             _logger.Log($"Archived conversation to {filename}");
-        }
+        // Removed ArchiveConversationAsync as we now use persistent folders
 
-        private void LoadHistory()
-        {
-            if (File.Exists(ConversationHistoryFile))
-            {
-                try
-                {
-                    string json = File.ReadAllText(ConversationHistoryFile);
-                    CurrentConversation = JsonSerializer.Deserialize<Conversation>(json) ?? new Conversation();
-                    _logger.Log("Loaded conversation history.");
-                }
-                catch (Exception ex)
-                {
-                    _logger.LogError(ex, "Failed to load conversation history");
-                    CurrentConversation = new Conversation();
-                }
-            }
-        }
-
-        private async Task SaveHistoryAsync()
-        {
-            try
-            {
-                string json = JsonSerializer.Serialize(CurrentConversation);
-                await File.WriteAllTextAsync(ConversationHistoryFile, json);
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Failed to save conversation history");
-            }
-        }
+        // Removed LoadHistory/SaveHistoryAsync legacy methods
 
         private void NotifyUpdate() => OnConversationUpdated?.Invoke();
+
+        private class WorldSettings
+        {
+            public string Background { get; set; } = "";
+            public string Protagonist { get; set; } = "";
+        }
     }
 
     public class Conversation

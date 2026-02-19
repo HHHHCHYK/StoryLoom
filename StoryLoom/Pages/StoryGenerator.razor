@@ -68,8 +68,57 @@
     <!-- Input Area -->
     <div class="input-area">
         <div class="toolbar">
-            <button class="btn-tool" @onclick="ShowActions">🎭 Actions</button>
-            <button class="btn-tool" @onclick="ShowSuggestions">💡 Suggest</button>
+            <div class="action-menu-container" style="position: relative;">
+                <button class="btn-tool" @onclick="ToggleActionMenu">
+                    @(string.IsNullOrEmpty(SelectedAction) ? "🎭 Actions" : SelectedAction)
+                </button>
+                @if (IsActionMenuOpen)
+                {
+                    <div class="dropdown-menu">
+                        <button @onclick='() => SelectAction("🎭 Actions")'>🤖 Auto</button>
+                        <button @onclick='() => SelectAction("🎬 Action")'>🎬 Action</button>
+                        <button @onclick='() => SelectAction("🗣️ Speak")'>🗣️ Speak</button>
+                        <button @onclick='() => SelectAction("💭 Think")'>💭 Think</button>
+                    </div>
+                }
+            </div>
+
+            <div class="suggestion-menu-container" style="position: relative; z-index: 1001;">
+                <button class="btn-tool" @onclick="ToggleSuggestionMenu">💡 Suggest</button>
+                @if (IsSuggestionMenuOpen)
+                {
+                     <div class="dropdown-menu suggestions-menu">
+                        <div class="menu-header">
+                            <span class="menu-title">Suggestions (@(string.IsNullOrEmpty(SelectedAction) || SelectedAction == "🎭 Actions" ? "Auto" : SelectedAction))</span>
+                            <button class="btn-icon-small" title="Regenerate" @onclick="RegenerateSuggestions">🔄</button>
+                        </div>
+                        
+                        @if (IsLoadingSuggestions)
+                        {
+                            <div class="menu-item-text">Loading suggestions...</div>
+                        }
+                        else if (Suggestions != null && Suggestions.Any())
+                        {
+                            @foreach (var suggestion in Suggestions)
+                            {
+                                 <button class="menu-item suggestion-item" @onclick="() => SelectSuggestion(suggestion)">
+                                    @suggestion
+                                </button>
+                            }
+                        }
+                        else
+                        {
+                             <div class="menu-item-text">No suggestions available.</div>
+                        }
+                    </div>
+                }
+            </div>
+            
+            @if (IsActionMenuOpen || IsSuggestionMenuOpen)
+            {
+                <div class="menu-backdrop" @onclick="CloseMenus"></div>
+            }
+            
             <div class="spacer"></div>
             <span class="status-text">@(IsGenerating ? "Writing..." : "Ready")</span>
         </div>
@@ -146,11 +195,15 @@
             // 1. Add User Message (Persists & potentially summarizes)
             await ConversationService.AddUserMessageAsync(prompt);
 
-            // 2. Get Context (Summary + Recent History + New User Msg)
-            var context = ConversationService.GetContextForLlm();
+            // 2. Get Context (Recent History)
+            var history = ConversationService.GetHistoryForLlm();
+            var background = SettingsService.Background;
+            var protagonist = SettingsService.Protagonist;
+            var summary = ConversationService.CurrentConversation.Summary;
 
-            // 3. Stream Response
-            await foreach (var token in LlmService.StreamCompletionAsync(context))
+            // 3. Stream Response using new StartGenerateAsync
+            // Pass the effective action (if any) to guide generation
+            await foreach (var token in LlmService.StartGenerateAsync(history, background, protagonist, summary, GetEffectiveAction()))
             {
                 CurrentStreamText += token;
                 StateHasChanged();
@@ -164,7 +217,7 @@
         {
             Logger.LogError(ex, "SendMessage");
             CurrentStreamText += "\n[Error generating response]";
-            await ConversationService.AddAiMessageAsync(CurrentStreamText); // Log error in chat?
+            await ConversationService.AddAiMessageAsync(CurrentStreamText); 
         }
         finally
         {
@@ -182,16 +235,90 @@
         // Event will re-render
     }
 
-    private void ShowActions()
+    private bool IsActionMenuOpen = false;
+    private string SelectedAction = "🎭 Actions";
+    
+    private bool IsSuggestionMenuOpen = false;
+    private bool IsLoadingSuggestions = false;
+    private List<string> Suggestions = new List<string>();
+
+    private void ToggleActionMenu()
     {
-        // Placeholder
-        Logger.Log("Action menu clicked");
+        IsActionMenuOpen = !IsActionMenuOpen;
+        IsSuggestionMenuOpen = false; 
     }
 
-    private void ShowSuggestions()
+    private void SelectAction(string action)
     {
-        // Placeholder
-        Logger.Log("Suggestions clicked");
+        SelectedAction = action;
+        IsActionMenuOpen = false;
+    }
+
+    private string? GetEffectiveAction()
+    {
+        // "🎭 Actions" is the default/reset state (Auto)
+        if (string.IsNullOrEmpty(SelectedAction) || SelectedAction == "🎭 Actions" || SelectedAction == "🤖 Auto")
+            return null;
+        return SelectedAction;
+    }
+
+    private async Task ToggleSuggestionMenu()
+    {
+        IsSuggestionMenuOpen = !IsSuggestionMenuOpen;
+        IsActionMenuOpen = false;
+        
+        if (IsSuggestionMenuOpen)
+        {
+            // If we have cached suggestions, just show them.
+            // Unless the list is empty, then fetch.
+            if (Suggestions == null || !Suggestions.Any())
+            {
+               await GetSuggestions();
+            }
+        }
+    }
+
+    private async Task GetSuggestions()
+    {
+        IsLoadingSuggestions = true;
+        Suggestions.Clear();
+        StateHasChanged();
+
+        var context = ConversationService.GetHistoryForLlm();
+        Suggestions = await LlmService.GetSuggestionsAsync(context, GetEffectiveAction());
+        
+        IsLoadingSuggestions = false;
+        StateHasChanged();
+    }
+    
+    private async Task RegenerateSuggestions()
+    {
+        // Force refresh
+        await GetSuggestions();
+    }
+
+    private void CloseMenus()
+    {
+        IsActionMenuOpen = false;
+        IsSuggestionMenuOpen = false;
+    }
+
+    private void SelectSuggestion(string text)
+    {
+        if (!string.IsNullOrEmpty(UserPrompt))
+        {
+             // Add a space if the prompt doesn't end with whitespace
+             if (UserPrompt.Length > 0 && !char.IsWhiteSpace(UserPrompt.Last()))
+             {
+                 UserPrompt += " ";
+             }
+             UserPrompt += text;
+        }
+        else
+        {
+            UserPrompt = text;
+        }
+        IsSuggestionMenuOpen = false;
     }
 
     private async void ScrollToBottom()
@@ -396,4 +523,99 @@
         animation: blink 1s infinite;
     }
     @@keyframes blink { 50% { opacity: 0; } }
+
+    /* Dropdown Menus */
+    .dropdown-menu {
+        position: absolute;
+        bottom: 100%; /* Show above button */
+        left: 0;
+        background-color: #252526;
+        border: 1px solid #3e3e42;
+        box-shadow: 0 4px 10px rgba(0,0,0,0.5);
+        border-radius: 4px;
+        padding: 5px;
+        display: flex;
+        flex-direction: column;
+        gap: 5px;
+        z-index: 1000;
+        min-width: 150px;
+        margin-bottom: 8px; /* Space between button and menu */
+    }
+
+    .dropdown-menu button {
+        background: none;
+        border: none;
+        color: #ccc;
+        text-align: left;
+        padding: 8px 12px;
+        cursor: pointer;
+        border-radius: 3px;
+        font-family: inherit;
+        font-size: 0.95em;
+        transition: background-color 0.2s;
+    }
+    .dropdown-menu button:hover {
+        background-color: #007acc;
+        color: white;
+    }
+    
+    .suggestions-menu {
+        width: 400px;
+        max-height: 300px;
+        overflow-y: auto;
+    }
+    
+    .suggestion-item {
+        border-bottom: 1px solid #333;
+        line-height: 1.4;
+    }
+    .suggestion-item:last-child { border-bottom: none; }
+    
+    .menu-item-text {
+        padding: 8px 12px;
+        color: #888;
+        font-style: italic;
+    }
+
+    /* New UI Elements for Suggestions */
+    .menu-backdrop {
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100vw;
+        height: 100vh;
+        z-index: 900; /* Below menus (z-index 1001) */
+        cursor: default;
+    }
+
+    .menu-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 5px 10px;
+        border-bottom: 1px solid #3e3e42;
+        margin-bottom: 5px;
+    }
+
+    .menu-title {
+        font-size: 0.8em;
+        font-weight: bold;
+        color: #888;
+        text-transform: uppercase;
+    }
+
+    .btn-icon-small {
+        background: none;
+        border: none;
+        color: #ccc;
+        cursor: pointer;
+        padding: 4px;
+        border-radius: 4px;
+        line-height: 1;
+        transition: background-color 0.2s;
+    }
+    .btn-icon-small:hover {
+        background-color: #3e3e42;
+        color: #fff;
+    }
 </style>

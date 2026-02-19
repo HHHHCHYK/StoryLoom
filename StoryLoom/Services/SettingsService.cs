@@ -1,4 +1,6 @@
 using System;
+using System.IO;
+using System.Text.Json;
 
 namespace StoryLoom.Services
 {
@@ -38,6 +40,12 @@ namespace StoryLoom.Services
         /// <summary>判断故事上下文是否就绪（检查背景和主角是否已设定）。</summary>
         public bool IsStoryContextReady => !string.IsNullOrWhiteSpace(Background) && !string.IsNullOrWhiteSpace(Protagonist);
 
+        // Persistence
+        public string LastSaveName { get; set; } = "";
+
+        private const string ConfigDirectory = "Config";
+        private const string ConfigFile = "config.json";
+
         private readonly LogService _logger;
 
         /// <summary>
@@ -47,6 +55,78 @@ namespace StoryLoom.Services
         {
             _logger = logger;
             _logger.Log("SettingsService initialized.");
+            LoadConfig();
+        }
+
+        public void LoadConfig()
+        {
+            try
+            {
+                string configDir = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, ConfigDirectory);
+                if (!Directory.Exists(configDir))
+                {
+                    Directory.CreateDirectory(configDir);
+                }
+
+                string configPath = Path.Combine(configDir, ConfigFile);
+                if (File.Exists(configPath))
+                {
+                    string json = File.ReadAllText(configPath);
+                    var config = JsonSerializer.Deserialize<SettingsConfig>(json);
+                    if (config != null)
+                    {
+                        ModelName = config.ModelName;
+                        ApiUrl = config.ApiUrl;
+                        ApiKey = config.ApiKey;
+                        Temperature = config.Temperature;
+                        MaxContextWindow = config.MaxContextWindow;
+                        MaxHistoryTurns = config.MaxHistoryTurns;
+                        LastSaveName = config.LastSaveName;
+                        _logger.Log("Global configuration loaded.");
+                    }
+                }
+                else
+                {
+                    // Create default config
+                    _logger.Log("Config file not found. Creating default.");
+                    SaveConfig();
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Failed to load global config");
+            }
+        }
+
+        public void SaveConfig()
+        {
+            try
+            {
+                string configDir = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, ConfigDirectory);
+                if (!Directory.Exists(configDir))
+                {
+                    Directory.CreateDirectory(configDir);
+                }
+
+                var config = new SettingsConfig
+                {
+                    ModelName = ModelName,
+                    ApiUrl = ApiUrl,
+                    ApiKey = ApiKey,
+                    Temperature = Temperature,
+                    MaxContextWindow = MaxContextWindow,
+                    MaxHistoryTurns = MaxHistoryTurns,
+                    LastSaveName = LastSaveName
+                };
+
+                string json = JsonSerializer.Serialize(config, new JsonSerializerOptions { WriteIndented = true });
+                File.WriteAllText(Path.Combine(configDir, ConfigFile), json);
+                _logger.Log("Global configuration saved.");
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Failed to save global config");
+            }
         }
 
         // Events to notify components of changes
@@ -55,7 +135,20 @@ namespace StoryLoom.Services
         public void NotifyStateChanged()
         {
             _logger.Log("Settings state changed.", LogLevel.Info);
+            SaveConfig(); // Auto-save on change? Or explicit save? Let's auto-save for now.
             OnChange?.Invoke();
+        }
+
+        // Inner class for serialization to strictly control what gets saved to config.json
+        private class SettingsConfig
+        {
+            public string ModelName { get; set; } = "deepseek-chat";
+            public string ApiUrl { get; set; } = "https://api.deepseek.com/v1";
+            public string ApiKey { get; set; } = "";
+            public double Temperature { get; set; } = 0.7;
+            public int MaxContextWindow { get; set; } = 4096;
+            public int MaxHistoryTurns { get; set; } = 10;
+            public string LastSaveName { get; set; } = "";
         }
     }
 }

@@ -1,5 +1,6 @@
 @page "/world-building"
 @inject SettingsService Settings
+@inject ConversationService ConversationService
 @inject LlmService Llm
 @inject NavigationManager Nav
 @inject LogService Logger
@@ -18,7 +19,7 @@
         <!-- Background Section -->
         <div class="section-box">
             <h3>背景设定 (Background)</h3>
-            <textarea @bind="Settings.Background" disabled="@IsBackgroundLocked" rows="10" placeholder="描述你的故事世界观..."></textarea>
+            <textarea @bind="Settings.Background" @onfocusout="SaveWorldSettings" disabled="@IsBackgroundLocked" rows="10" placeholder="描述你的故事世界观..."></textarea>
             <div class="controls">
                 <button class="icon-btn" @onclick="() => IsBackgroundLocked = !IsBackgroundLocked" title="Lock/Unlock">
                     @(IsBackgroundLocked ? "🔒" : "🔓")
@@ -35,7 +36,7 @@
         <!-- Protagonist Section -->
         <div class="section-box">
             <h3>主角设定 (Protagonist)</h3>
-            <textarea @bind="Settings.Protagonist" disabled="@IsProtagonistLocked" rows="10" placeholder="描述主角的性格、外貌..."></textarea>
+            <textarea @bind="Settings.Protagonist" @onfocusout="SaveWorldSettings" disabled="@IsProtagonistLocked" rows="10" placeholder="描述主角的性格、外貌..."></textarea>
             <div class="controls">
                 <button class="icon-btn" @onclick="() => IsProtagonistLocked = !IsProtagonistLocked" title="Lock/Unlock">
                     @(IsProtagonistLocked ? "🔒" : "🔓")
@@ -89,6 +90,7 @@
         {
             // 调用 LLM 服务，使用 "Background" 作为上下文类型
             Settings.Background = await Llm.EnhanceTextAsync(Settings.Background, "Background");
+            await SaveWorldSettings();
         }
         catch (Exception ex) {_ = ex; /* LlmService 会记录日志，UI 只需恢复状态 */ }
         finally
@@ -110,6 +112,7 @@
         try
         {
             Settings.Protagonist = await Llm.EnhanceTextAsync(Settings.Protagonist, "Protagonist");
+            await SaveWorldSettings();
         }
         catch (Exception ex) { _ = ex; }
         finally
@@ -118,16 +121,24 @@
         }
     }
 
-    private void UndoBackground() 
+    private async Task UndoBackground() 
     {
         Logger.Log("User undid background change.");
         Settings.Background = LastBackground;
+        await SaveWorldSettings();
     }
 
-    private void UndoProtagonist() 
+    private async Task UndoProtagonist() 
     {
         Logger.Log("User undid protagonist change.");
         Settings.Protagonist = LastProtagonist;
+        await SaveWorldSettings();
+    }
+
+    private async Task SaveWorldSettings()
+    {
+        await ConversationService.SaveCurrentStateAsync();
+        Logger.Log("World settings saved automatically.");
     }
 
     /// <summary>

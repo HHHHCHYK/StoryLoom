@@ -8,17 +8,17 @@
 
     <div class="form-group">
         <label>模型名称 (Model Name)</label>
-        <input @bind="Settings.ModelName" placeholder="e.g. gemini-pro" />
+        <input @bind="Settings.ModelName" @onfocusout="Settings.NotifyStateChanged" placeholder="e.g. gemini-pro" />
     </div>
 
     <div class="form-group">
         <label>API Endpoint URL</label>
-        <input @bind="Settings.ApiUrl" placeholder="https://..." />
+        <input @bind="Settings.ApiUrl" @onfocusout="Settings.NotifyStateChanged" placeholder="https://..." />
     </div>
 
     <div class="form-group">
         <label>API Key</label>
-        <input type="password" @bind="Settings.ApiKey" placeholder="Your API Key" />
+        <input type="password" @bind="Settings.ApiKey" @onfocusout="Settings.NotifyStateChanged" placeholder="Your API Key" />
     </div>
 
     <div class="action-bar">
@@ -46,12 +46,12 @@
             <div class="dev-content">
                 <div class="form-group">
                     <label>模型温度 (Temperature): @Settings.Temperature</label>
-                    <input type="range" min="0" max="1" step="0.1" @bind="Settings.Temperature" />
+                    <input type="range" min="0" max="1" step="0.1" @bind="Settings.Temperature" @onmouseup="Settings.NotifyStateChanged" />
                 </div>
 
                 <div class="form-group">
                     <label>上下文窗口 (Context Window): @Settings.MaxContextWindow</label>
-                     <input type="number" @bind="Settings.MaxContextWindow" />
+                     <input type="number" @bind="Settings.MaxContextWindow" @onfocusout="Settings.NotifyStateChanged" />
                 </div>
             </div>
         }
