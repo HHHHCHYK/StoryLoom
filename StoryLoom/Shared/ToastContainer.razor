@@ -1,0 +1,85 @@
+@using StoryLoom.Services
+@inject ToastService ToastService
+@implements IDisposable
+
+@if (!string.IsNullOrEmpty(currentMessage))
+{
+    <div class="toast-container" @onclick="HideToast">
+        <div class="toast-message">
+            @currentMessage
+        </div>
+    </div>
+}
+
+@code {
+    private string? currentMessage;
+    private System.Threading.Timer? timer;
+
+    protected override void OnInitialized()
+    {
+        ToastService.OnShowToast += ShowToast;
+    }
+
+    private void ShowToast(string message)
+    {
+        InvokeAsync(() =>
+        {
+            currentMessage = message;
+            StateHasChanged();
+
+            timer?.Dispose();
+            timer = new System.Threading.Timer(_ => HideToast(), null, 3000, System.Threading.Timeout.Infinite);
+        });
+    }
+
+    private void HideToast()
+    {
+        InvokeAsync(() =>
+        {
+            currentMessage = null;
+            StateHasChanged();
+        });
+    }
+
+    public void Dispose()
+    {
+        ToastService.OnShowToast -= ShowToast;
+        timer?.Dispose();
+    }
+}
+
+<style>
+    .toast-container {
+        position: fixed;
+        top: 20px;
+        left: 50%;
+        transform: translateX(-50%);
+        z-index: 10000;
+        cursor: pointer;
+        animation: slideDown 0.3s ease-out;
+    }
+
+    .toast-message {
+        background-color: rgba(0, 0, 0, 0.85);
+        color: #fff;
+        padding: 10px 20px;
+        border-radius: 8px;
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+        font-family: 'Segoe UI', sans-serif;
+        font-size: 14px;
+        text-align: center;
+        max-width: 400px;
+        word-wrap: break-word;
+    }
+
+    @@keyframes slideDown {
+        from {
+            top: -50px;
+            opacity: 0;
+        }
+        to {
+            top: 20px;
+            opacity: 1;
+        }
+    }
+</style>

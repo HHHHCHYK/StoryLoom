@@ -129,9 +129,14 @@
                       @onkeydown="HandleKeyDown" 
                       placeholder="What happens next? (Ctrl+Enter to send)"
                       disabled="@IsGenerating"></textarea>
-            <button class="btn-send" @onclick="SendMessage" disabled="@(IsGenerating || string.IsNullOrWhiteSpace(UserPrompt))">
-                Send 🚀
-            </button>
+            <div class="input-actions-col">
+                <button class="btn-tool btn-enhance" @onclick="EnhancePromptAsync" disabled="@(IsGenerating || string.IsNullOrWhiteSpace(UserPrompt) || IsEnhancing)">
+                    @(IsEnhancing ? "✨🔄" : "✨ Enhance")
+                </button>
+                <button class="btn-send" @onclick="SendMessage" disabled="@(IsGenerating || string.IsNullOrWhiteSpace(UserPrompt) || IsEnhancing)">
+                    Send 🚀
+                </button>
+            </div>
         </div>
     </div>
 </div>
@@ -140,6 +145,11 @@
     private string UserPrompt { get; set; } = "";
     private string CurrentStreamText { get; set; } = "";
     private bool IsGenerating = false;
+    private bool IsEnhancing = false;
+
+    // Typewriter state
+    private System.Text.StringBuilder _typewriterBuffer = new System.Text.StringBuilder();
+    private bool _isTypewriterRunning = false;
 
     protected override void OnInitialized()
     {
@@ -183,13 +193,18 @@
 
     private async Task SendMessage()
     {
-        if (string.IsNullOrWhiteSpace(UserPrompt) || IsGenerating) return;
+        if (string.IsNullOrWhiteSpace(UserPrompt) || IsGenerating || IsEnhancing) return;
 
         var prompt = UserPrompt;
         UserPrompt = "";
         IsGenerating = true;
         CurrentStreamText = "";
+        _typewriterBuffer.Clear();
+        _isTypewriterRunning = true;
         
+        // Start background consumption task for typewriter effect
+        var typewriterTask = RunTypewriterAsync();
+
         try
         {
             // 1. Add User Message (Persists & potentially summarizes)
@@ -205,13 +220,21 @@
             // Pass the effective action (if any) to guide generation
             await foreach (var token in LlmService.StartGenerateAsync(history, background, protagonist, summary, GetEffectiveAction()))
             {
-                CurrentStreamText += token;
-                StateHasChanged();
-                ScrollToBottom();
+                // Push token to buffer instead of directly appending
+                _typewriterBuffer.Append(token);
+            }
+
+            // Wait until the typewriter buffer is fully consumed
+            while (_typewriterBuffer.Length > 0)
+            {
+                await Task.Delay(50);
             }
 
             // 4. Save Final AI Message
             await ConversationService.AddAiMessageAsync(CurrentStreamText);
+            
+            // CLEAR SUGGESTION CACHE here so next time we click Suggest it fetches new ones
+            Suggestions.Clear();
         }
         catch (Exception ex)
         {
@@ -221,10 +244,60 @@
         }
         finally
         {
+            _isTypewriterRunning = false;
+            await typewriterTask; // Ensure it finishes safely
+            
             IsGenerating = false;
             CurrentStreamText = "";
             StateHasChanged();
             ScrollToBottom();
+        }
+    }
+
+    private async Task RunTypewriterAsync()
+    {
+        while (_isTypewriterRunning || _typewriterBuffer.Length > 0)
+        {
+            if (_typewriterBuffer.Length > 0)
+            {
+                // Take one character
+                char ch = _typewriterBuffer[0];
+                _typewriterBuffer.Remove(0, 1);
+                
+                CurrentStreamText += ch;
+                StateHasChanged();
+                ScrollToBottom();
+                
+                await Task.Delay(SettingsService.TextSpeed);
+            }
+            else
+            {
+                await Task.Delay(20); // Poll frequently when buffer empty but generating
+            }
+        }
+    }
+
+    private async Task EnhancePromptAsync()
+    {
+        if (string.IsNullOrWhiteSpace(UserPrompt) || IsGenerating || IsEnhancing) return;
+        
+        IsEnhancing = true;
+        StateHasChanged();
+        
+        try
+        {
+            var enhanced = await LlmService.EnhanceTextAsync(UserPrompt, "auto");
+            UserPrompt = enhanced;
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "EnhancePromptAsync");
+            ToastService toast = (ToastService)Nav.ToAbsoluteUri("").ToString().Length.ToString().Clone(); // fallback hack, use logger directly
+        }
+        finally
+        {
+            IsEnhancing = false;
+            StateHasChanged();
         }
     }
 
@@ -342,7 +415,8 @@
     .story-container {
         display: flex;
         flex-direction: column;
-        height: 100vh; /* Full viewport height */
+        flex: 1;
+        height: 100%; /* Will fill the .content area provided by MainLayout */
         background-color: #1e1e1e;
         color: #d4d4d4;
         font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
@@ -484,7 +558,13 @@
     .input-row {
         display: flex;
         gap: 10px;
-        align-items: flex-end;
+        align-items: flex-start;
+    }
+
+    .input-actions-col {
+        display: flex;
+        flex-direction: column;
+        gap: 5px;
     }
 
     textarea {
@@ -495,17 +575,32 @@
         border-radius: 4px;
         padding: 10px;
         resize: none;
-        height: 60px; /* Base height */
+        height: 70px; /* Base height */
         font-family: inherit;
     }
     textarea:focus { border-color: #007acc; outline: none; }
+
+    .btn-enhance {
+        background-color: #4a4a4a;
+        color: #fff;
+        border: none;
+        padding: 5px 15px;
+        border-radius: 4px;
+        font-weight: bold;
+        cursor: pointer;
+        transition: background 0.2s;
+        font-size: 0.85em;
+    }
+    .btn-enhance:hover { background-color: #5c5c5c; }
+    .btn-enhance:disabled { background-color: #333; color: #888; cursor: not-allowed; }
 
     .btn-send {
         background-color: #007acc;
         color: white;
         border: none;
         padding: 0 20px;
-        height: 60px;
+        height: 40px;
+        flex: 1;
         border-radius: 4px;
         font-weight: bold;
         cursor: pointer;

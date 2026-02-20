@@ -6,12 +6,17 @@
         xmlns:local="clr-namespace:StoryLoom"
         xmlns:blazor="clr-namespace:Microsoft.AspNetCore.Components.WebView.Wpf;assembly=Microsoft.AspNetCore.Components.WebView.Wpf"
         mc:Ignorable="d"
-        Title="StoryLoom - 故事织机" Height="768" Width="1024">
-    <Grid>
-        <blazor:BlazorWebView HostPage="wwwroot/index.html" Services="{DynamicResource Services}">
-            <blazor:BlazorWebView.RootComponents>
-                <blazor:RootComponent Selector="#app" ComponentType="{x:Type local:BlazorApp}" />
-            </blazor:BlazorWebView.RootComponents>
-        </blazor:BlazorWebView>
-    </Grid>
+        Title="StoryLoom - 故事织机" Height="768" Width="1024"
+        WindowStyle="None" AllowsTransparency="True" Background="Transparent">
+    <Border Background="#1e1e1e" CornerRadius="8">
+        <Grid>
+            <!-- A subtle draggable title bar area at the very top so users can move the window easily -->
+            <Grid Height="30" VerticalAlignment="Top" Background="Transparent" Panel.ZIndex="1" MouseLeftButtonDown="TitleBar_MouseLeftButtonDown" />
+            <blazor:BlazorWebView HostPage="wwwroot/index.html" Services="{DynamicResource Services}" Margin="0,5,0,0">
+                <blazor:BlazorWebView.RootComponents>
+                    <blazor:RootComponent Selector="#app" ComponentType="{x:Type local:BlazorApp}" />
+                </blazor:BlazorWebView.RootComponents>
+            </blazor:BlazorWebView>
+        </Grid>
+    </Border>
 </Window>

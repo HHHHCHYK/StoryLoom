@@ -32,6 +32,7 @@ namespace StoryLoom.Services
 
         public async Task AddUserMessageAsync(string content)
         {
+            _logger.Log($"[{nameof(ConversationService)}] {nameof(AddUserMessageAsync)} called. Message length: {content?.Length ?? 0}");
             CurrentConversation.Messages.Add(new ChatMessage { Role = "user", Content = content });
             NotifyUpdate();
             await SaveCurrentStateAsync();
@@ -40,6 +41,7 @@ namespace StoryLoom.Services
 
         public async Task AddAiMessageAsync(string content)
         {
+            _logger.Log($"[{nameof(ConversationService)}] {nameof(AddAiMessageAsync)} called. Message length: {content?.Length ?? 0}");
             CurrentConversation.Messages.Add(new ChatMessage { Role = "assistant", Content = content });
             NotifyUpdate();
             await SaveCurrentStateAsync();
@@ -152,6 +154,7 @@ namespace StoryLoom.Services
 
         public void UpdateTitle(string newTitle)
         {
+            _logger.Log($"[{nameof(ConversationService)}] {nameof(UpdateTitle)} called. New title: {newTitle}");
             CurrentConversation.Title = newTitle;
             NotifyUpdate();
             _ = SaveCurrentStateAsync();
@@ -159,6 +162,7 @@ namespace StoryLoom.Services
 
         public List<ChatMessage> GetHistoryForLlm()
         {
+            _logger.Log($"[{nameof(ConversationService)}] {nameof(GetHistoryForLlm)} called.");
             // Get recent history messages starting from the last summarized index
             // This excludes the system prompt, which is now handled by LlmService
             return CurrentConversation.Messages.Skip(CurrentConversation.LastSummarizedIndex).ToList();
@@ -166,6 +170,7 @@ namespace StoryLoom.Services
 
         public async Task SaveCurrentStateAsync()
         {
+            _logger.Log($"[{nameof(ConversationService)}] {nameof(SaveCurrentStateAsync)} called.");
             if (string.IsNullOrWhiteSpace(CurrentSaveName))
             {
                 _logger.Log("No save name specified. Cannot save state.", LogLevel.Error);

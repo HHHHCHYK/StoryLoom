@@ -4,6 +4,8 @@ using System.Net.Http;
 using System.Text;
 using System.Text.Json;
 using System.Threading.Tasks;
+using System.Linq;
+using Microsoft.ML.Tokenizers;
 
 namespace StoryLoom.Services
 {
@@ -12,16 +14,29 @@ namespace StoryLoom.Services
         private readonly HttpClient _httpClient;
         private readonly SettingsService _settings;
         private readonly LogService _logger;
+        private readonly ToastService _toastService;
+        private readonly Tokenizer? _tokenizer;
 
-        public LlmClient(HttpClient httpClient, SettingsService settings, LogService logger)
+        public LlmClient(HttpClient httpClient, SettingsService settings, LogService logger, ToastService toastService)
         {
             _httpClient = httpClient;
             _settings = settings;
             _logger = logger;
+            _toastService = toastService;
+            try
+            {
+                _tokenizer = TiktokenTokenizer.CreateForModel("gpt-4o");
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Failed to initialize Tokenizer");
+            }
         }
 
         public async Task<string> GetCompletionAsync(IEnumerable<ChatMessage> messages, double temperature, int maxTokens)
         {
+            _logger.Log($"[{nameof(LlmClient)}] {nameof(GetCompletionAsync)} called. Temperature: {temperature}, MaxTokens: {maxTokens}. Message count: {messages.Count()}");
+            
             if (!_settings.IsModelConfigured)
             {
                 throw new InvalidOperationException("API configuration is missing.");
@@ -56,6 +71,8 @@ namespace StoryLoom.Services
 
         public async IAsyncEnumerable<string> StreamCompletionAsync(IEnumerable<ChatMessage> messages, double temperature, int maxTokens)
         {
+            _logger.Log($"[{nameof(LlmClient)}] {nameof(StreamCompletionAsync)} called. Temperature: {temperature}, MaxTokens: {maxTokens}. Message count: {messages.Count()}");
+
             if (!_settings.IsModelConfigured)
             {
                 yield return "[Error: Configuration missing]";
@@ -130,11 +147,26 @@ namespace StoryLoom.Services
                 stream = stream
             };
 
+            int tokenCount = 0;
+            if (_tokenizer != null)
+            {
+                foreach (var msg in messages)
+                {
+                    tokenCount += _tokenizer.CountTokens(msg.Content ?? "") + 4; // basic heuristic
+                }
+            }
+            
+            _logger.Log($"[{nameof(LlmClient)}] Calculated tokens: ~{tokenCount}. Calling ToastService.");
+            _toastService.ShowToast($"正在发送请求... (~{tokenCount} tokens)");
+
             var lastMessage = messages.LastOrDefault();
             if (lastMessage != null)
             {
-                _logger.Log($"[LlmClient] Sending Prompt Content:\n{lastMessage.Content}");
+                _logger.Log($"[{nameof(LlmClient)}] Sending Prompt Content:\n{lastMessage.Content}");
             }
+            
+            var messagesJson = JsonSerializer.Serialize(messages, new JsonSerializerOptions { WriteIndented = true, Encoder = System.Text.Encodings.Web.JavaScriptEncoder.UnsafeRelaxedJsonEscaping });
+            _logger.Log($"[{nameof(LlmClient)}] Full Conversation Content:\n{messagesJson}");
             
             var json = JsonSerializer.Serialize(payload);
             var request = new HttpRequestMessage(HttpMethod.Post, endpoint);

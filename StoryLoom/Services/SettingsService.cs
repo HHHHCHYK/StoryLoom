@@ -26,6 +26,9 @@ namespace StoryLoom.Services
         /// <summary>最大历史对话轮数 (Turns)。超过此数量将触发总结。</summary>
         public int MaxHistoryTurns { get; set; } = 10;
 
+        /// <summary>打字机输出速度 (毫秒/字符)。</summary>
+        public int TextSpeed { get; set; } = 30;
+
         // Story Context
         /// <summary>故事背景设定。</summary>
         public string Background { get; set; } = "";
@@ -81,6 +84,7 @@ namespace StoryLoom.Services
                         Temperature = config.Temperature;
                         MaxContextWindow = config.MaxContextWindow;
                         MaxHistoryTurns = config.MaxHistoryTurns;
+                        TextSpeed = config.TextSpeed;
                         LastSaveName = config.LastSaveName;
                         _logger.Log("Global configuration loaded.");
                     }
@@ -116,6 +120,7 @@ namespace StoryLoom.Services
                     Temperature = Temperature,
                     MaxContextWindow = MaxContextWindow,
                     MaxHistoryTurns = MaxHistoryTurns,
+                    TextSpeed = TextSpeed,
                     LastSaveName = LastSaveName
                 };
 
@@ -148,6 +153,7 @@ namespace StoryLoom.Services
             public double Temperature { get; set; } = 0.7;
             public int MaxContextWindow { get; set; } = 4096;
             public int MaxHistoryTurns { get; set; } = 10;
+            public int TextSpeed { get; set; } = 30;
             public string LastSaveName { get; set; } = "";
         }
     }

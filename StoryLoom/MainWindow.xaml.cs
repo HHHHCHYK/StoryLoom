@@ -24,6 +24,8 @@ public partial class MainWindow : Window
         serviceCollection.AddSingleton<Services.SettingsService>();
         serviceCollection.AddSingleton<Services.LogService>();
         serviceCollection.AddSingleton<Services.ConversationService>();
+        serviceCollection.AddSingleton<Services.ToastService>();
+        serviceCollection.AddSingleton<Services.AppControlService>();
         
         // HTTP 客户端和 Transient (瞬态) 服务
         serviceCollection.AddHttpClient<Services.LlmClient>();
@@ -40,5 +42,22 @@ public partial class MainWindow : Window
         // 初始化：加载上次的存档
         var conversationService = serviceProvider.GetRequiredService<Services.ConversationService>();
         _ = conversationService.LoadLatestSaveAsync();
+    }
+
+    private void TitleBar_MouseLeftButtonDown(object sender, System.Windows.Input.MouseButtonEventArgs e)
+    {
+        if (e.ClickCount == 2)
+        {
+            if (this.WindowState == WindowState.Maximized)
+                this.WindowState = WindowState.Normal;
+            else
+                this.WindowState = WindowState.Maximized;
+            return;
+        }
+
+        if (e.ChangedButton == System.Windows.Input.MouseButton.Left)
+        {
+            this.DragMove();
+        }
     }
 }

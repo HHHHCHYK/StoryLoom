@@ -132,6 +132,7 @@ namespace StoryLoom.Services
         /// </summary>
         public IAsyncEnumerable<string> StartGenerateAsync(List<ChatMessage> historyMessages, string background, string protagonist, string summary, string? actionType = null)
         {
+            _logger.Log($"[{nameof(LlmService)}] {nameof(StartGenerateAsync)} called");
             // unique service method for "Action" logic (Story Generation)
             
             // 1. Construct System Prompt
