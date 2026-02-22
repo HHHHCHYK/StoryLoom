@@ -23,16 +23,18 @@ namespace StoryLoom.Services
             _logger = logger;
         }
 
-        public async Task<string> TestConnectionAsync()
+        public async Task<string> TestConnectionAsync(bool isPromptModel = false)
         {
-            _logger.Log($"Testing connection to {_settings.ApiUrl} with model {_settings.ModelName}...");
+            var apiUrl = isPromptModel ? _settings.PromptApiUrl : _settings.StoryApiUrl;
+            var modelName = isPromptModel ? _settings.PromptModelName : _settings.StoryModelName;
+            _logger.Log($"Testing connection to {apiUrl} with model {modelName}...");
             
             var messages = new List<ChatMessage>
             {
                 new ChatMessage { Role = "user", Content = PromptTemplates.TestConnection }
             };
 
-            var response = await _llmClient.GetCompletionAsync(messages, 0.7, 50);
+            var response = await _llmClient.GetCompletionAsync(messages, 0.7, 50, isPromptModel);
             _logger.Log("TestConnection successful.");
             return response;
         }
@@ -50,7 +52,7 @@ namespace StoryLoom.Services
 
             try
             {
-                var summary = await _llmClient.GetCompletionAsync(messages, 0.5, 500);
+                var summary = await _llmClient.GetCompletionAsync(messages, 0.5, 500, isPromptModel: true);
                 _logger.Log($"Text summarized successfully (Length: {summary.Length}).");
                 return summary;
             }
@@ -71,7 +73,7 @@ namespace StoryLoom.Services
                  new ChatMessage { Role = "user", Content = prompt }
              };
 
-             var enhanced = await _llmClient.GetCompletionAsync(messages, 0.8, 1000);
+             var enhanced = await _llmClient.GetCompletionAsync(messages, 0.8, 1000, isPromptModel: true);
              _logger.Log($"Text enhanced successfully (Length: {enhanced.Length}).");
              return enhanced;
         }
@@ -90,7 +92,9 @@ namespace StoryLoom.Services
 
             try
             {
-                var content = await _llmClient.GetCompletionAsync(messages, 0.9, 300);
+                // Increased maxTokens to 2000 to allow reasoning models (like deepseek-reasoner) enough capacity 
+                // to generate both their reasoning process and the final JSON response.
+                var content = await _llmClient.GetCompletionAsync(messages, 0.9, 2000, isPromptModel: true);
                 
                 // Content *should* be a JSON array string as per new prompts.
                 // Try to parse it directly.
@@ -126,6 +130,11 @@ namespace StoryLoom.Services
             }
         }
 
+        public int CalculateTokenCount(IEnumerable<ChatMessage> messages)
+        {
+            return _llmClient.CalculateTokenCount(messages);
+        }
+
         /// <summary>
         /// Starts the story generation process.
         /// Constructs the system prompt using templates and streams the response.
@@ -144,7 +153,7 @@ namespace StoryLoom.Services
             fullContext.AddRange(historyMessages);
 
             // 3. Stream
-            return _llmClient.StreamCompletionAsync(fullContext, _settings.Temperature, _settings.MaxContextWindow);
+            return _llmClient.StreamCompletionAsync(fullContext, _settings.Temperature, _settings.MaxContextWindow, isPromptModel: false);
         }
     }
 

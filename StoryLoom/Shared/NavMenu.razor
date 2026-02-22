@@ -11,7 +11,7 @@
 
     <nav class="flex-column">
         <div class="nav-item px-3">
-            <NavLink class="nav-link" href="story-generator" Match="NavLinkMatch.All">
+            <NavLink class="nav-link" href="story-generator">
                 <span class="icon">🚀</span>
                 @if (!Collapsed)
                 {
@@ -19,6 +19,18 @@
                 }
             </NavLink>
         </div>
+
+        <div class="nav-item px-3">
+            <NavLink class="nav-link" href="saves" Match="NavLinkMatch.All">
+                <span class="icon">💾</span>
+                @if (!Collapsed)
+                {
+                    <span class="text">存档选择</span>
+                }
+            </NavLink>
+        </div>
+
+
         
         <div class="nav-item px-3">
             <NavLink class="nav-link" href="world-building">

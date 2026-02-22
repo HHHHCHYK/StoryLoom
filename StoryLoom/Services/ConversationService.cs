@@ -207,14 +207,19 @@ namespace StoryLoom.Services
 
         private async Task CheckAndSummarizeAsync()
         {
-            int maxTurns = _settingsService.MaxHistoryTurns;
+            int threshold = _settingsService.SummaryTokenThreshold;
             int totalMessages = CurrentConversation.Messages.Count;
             int unsummarizedCount = totalMessages - CurrentConversation.LastSummarizedIndex;
 
-            // Trigger if we have more than maxTurns * 2 new messages since last summary
-            if (unsummarizedCount > maxTurns * 2)
+            if (unsummarizedCount <= 0) return;
+
+            var unsummarizedMessages = CurrentConversation.Messages.Skip(CurrentConversation.LastSummarizedIndex).ToList();
+            int tokenCount = _llmService.CalculateTokenCount(unsummarizedMessages);
+
+            // Trigger if the token count of unsummarized messages exceeds the threshold
+            if (tokenCount > threshold)
             {
-                _logger.Log($"Conversation new messages ({unsummarizedCount}) exceeded limit. Summarizing...");
+                _logger.Log($"Conversation token count ({tokenCount}) exceeded limit ({threshold}). Summarizing...");
                 
                 // We want to keep the last 'keepCount' messages raw for context
                 // Update: User requested to discard previous context after summary, so we keep 0 (summarize everything).
@@ -270,6 +275,64 @@ namespace StoryLoom.Services
             public string Background { get; set; } = "";
             public string Protagonist { get; set; } = "";
         }
+
+        public async Task<List<SaveMetadata>> GetAvailableSavesAsync()
+        {
+            var saves = new List<SaveMetadata>();
+            string savesDir = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, SavesDirectory);
+            if (!Directory.Exists(savesDir)) return saves;
+
+            var dirs = Directory.GetDirectories(savesDir);
+            foreach (var dir in dirs)
+            {
+                var meta = new SaveMetadata { SaveName = Path.GetFileName(dir) };
+                
+                // Read Chat
+                string chatPath = Path.Combine(dir, ChatFile);
+                if (File.Exists(chatPath))
+                {
+                    try
+                    {
+                        string chatJson = await File.ReadAllTextAsync(chatPath);
+                        var conv = JsonSerializer.Deserialize<Conversation>(chatJson);
+                        if (conv != null)
+                        {
+                            meta.Title = conv.Title;
+                            meta.CreatedAt = conv.CreatedAt;
+                            meta.Summary = conv.Summary;
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        _logger.LogError(ex, $"Failed to parse chat.json for save: {meta.SaveName}");
+                    }
+                }
+
+                // Read World
+                string worldPath = Path.Combine(dir, WorldFile);
+                if (File.Exists(worldPath))
+                {
+                    try
+                    {
+                        string worldJson = await File.ReadAllTextAsync(worldPath);
+                        var worldData = JsonSerializer.Deserialize<WorldSettings>(worldJson);
+                        if (worldData != null)
+                        {
+                            meta.Protagonist = worldData.Protagonist;
+                            meta.Background = worldData.Background;
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        _logger.LogError(ex, $"Failed to parse world.json for save: {meta.SaveName}");
+                    }
+                }
+
+                saves.Add(meta);
+            }
+
+            return saves.OrderByDescending(s => s.CreatedAt).ToList();
+        }
     }
 
     public class Conversation
@@ -287,5 +350,15 @@ namespace StoryLoom.Services
         public int LastSummarizedIndex { get; set; } = 0;
         
         public List<ChatMessage> Messages { get; set; } = new List<ChatMessage>();
+    }
+
+    public class SaveMetadata
+    {
+        public string SaveName { get; set; } = "";
+        public string Title { get; set; } = "Unknown";
+        public DateTime CreatedAt { get; set; } = DateTime.MinValue;
+        public string Summary { get; set; } = "";
+        public string Protagonist { get; set; } = "";
+        public string Background { get; set; } = "";
     }
 }

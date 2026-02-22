@@ -33,16 +33,19 @@ namespace StoryLoom.Services
             }
         }
 
-        public async Task<string> GetCompletionAsync(IEnumerable<ChatMessage> messages, double temperature, int maxTokens)
+        public async Task<string> GetCompletionAsync(IEnumerable<ChatMessage> messages, double temperature, int maxTokens, bool isPromptModel = false)
         {
-            _logger.Log($"[{nameof(LlmClient)}] {nameof(GetCompletionAsync)} called. Temperature: {temperature}, MaxTokens: {maxTokens}. Message count: {messages.Count()}");
+            _logger.Log($"[{nameof(LlmClient)}] {nameof(GetCompletionAsync)} called. Temperature: {temperature}, MaxTokens: {maxTokens}. Message count: {messages.Count()}, isPromptModel: {isPromptModel}");
             
-            if (!_settings.IsModelConfigured)
+            var modelName = isPromptModel ? _settings.PromptModelName : _settings.StoryModelName;
+            var apiUrl = isPromptModel ? _settings.PromptApiUrl : _settings.StoryApiUrl;
+            
+            if (string.IsNullOrWhiteSpace(_settings.ApiKey) || string.IsNullOrWhiteSpace(apiUrl))
             {
                 throw new InvalidOperationException("API configuration is missing.");
             }
 
-            var request = CreateRequest(messages, temperature, maxTokens, stream: false);
+            var request = CreateRequest(messages, temperature, maxTokens, stream: false, modelName, apiUrl);
 
             try
             {
@@ -69,17 +72,20 @@ namespace StoryLoom.Services
             }
         }
 
-        public async IAsyncEnumerable<string> StreamCompletionAsync(IEnumerable<ChatMessage> messages, double temperature, int maxTokens)
+        public async IAsyncEnumerable<string> StreamCompletionAsync(IEnumerable<ChatMessage> messages, double temperature, int maxTokens, bool isPromptModel = false)
         {
-            _logger.Log($"[{nameof(LlmClient)}] {nameof(StreamCompletionAsync)} called. Temperature: {temperature}, MaxTokens: {maxTokens}. Message count: {messages.Count()}");
+            _logger.Log($"[{nameof(LlmClient)}] {nameof(StreamCompletionAsync)} called. Temperature: {temperature}, MaxTokens: {maxTokens}. Message count: {messages.Count()}, isPromptModel: {isPromptModel}");
 
-            if (!_settings.IsModelConfigured)
+            var modelName = isPromptModel ? _settings.PromptModelName : _settings.StoryModelName;
+            var apiUrl = isPromptModel ? _settings.PromptApiUrl : _settings.StoryApiUrl;
+
+            if (string.IsNullOrWhiteSpace(_settings.ApiKey) || string.IsNullOrWhiteSpace(apiUrl))
             {
                 yield return "[Error: Configuration missing]";
                 yield break;
             }
 
-            var request = CreateRequest(messages, temperature, maxTokens, stream: true);
+            var request = CreateRequest(messages, temperature, maxTokens, stream: true, modelName, apiUrl);
 
             using var response = await _httpClient.SendAsync(request, HttpCompletionOption.ResponseHeadersRead);
 
@@ -129,24 +135,8 @@ namespace StoryLoom.Services
             }
         }
 
-        private HttpRequestMessage CreateRequest(IEnumerable<ChatMessage> messages, double temperature, int maxTokens, bool stream)
+        public int CalculateTokenCount(IEnumerable<ChatMessage> messages)
         {
-            var endpoint = _settings.ApiUrl;
-            if (endpoint.EndsWith("/v1", StringComparison.OrdinalIgnoreCase))
-            {
-                endpoint += "/chat/completions";
-            }
-            // Add other heuristic fix if necessary
-
-            var payload = new 
-            {
-                model = _settings.ModelName,
-                messages = messages,
-                temperature = temperature,
-                max_tokens = maxTokens,
-                stream = stream
-            };
-
             int tokenCount = 0;
             if (_tokenizer != null)
             {
@@ -155,6 +145,36 @@ namespace StoryLoom.Services
                     tokenCount += _tokenizer.CountTokens(msg.Content ?? "") + 4; // basic heuristic
                 }
             }
+            else
+            {
+                // fallback if tokenizer failed to load
+                foreach (var msg in messages)
+                {
+                    tokenCount += (msg.Content?.Length ?? 0) / 4;
+                }
+            }
+            return tokenCount;
+        }
+
+        private HttpRequestMessage CreateRequest(IEnumerable<ChatMessage> messages, double temperature, int maxTokens, bool stream, string modelName, string apiUrl)
+        {
+            var endpoint = apiUrl;
+            if (endpoint.EndsWith("/v1", StringComparison.OrdinalIgnoreCase))
+            {
+                endpoint += "/chat/completions";
+            }
+            // Add other heuristic fix if necessary
+
+            var payload = new 
+            {
+                model = modelName,
+                messages = messages,
+                temperature = temperature,
+                max_tokens = maxTokens,
+                stream = stream
+            };
+
+            int tokenCount = CalculateTokenCount(messages);
             
             _logger.Log($"[{nameof(LlmClient)}] Calculated tokens: ~{tokenCount}. Calling ToastService.");
             _toastService.ShowToast($"正在发送请求... (~{tokenCount} tokens)");

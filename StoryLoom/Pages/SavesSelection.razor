@@ -1,0 +1,207 @@
+@page "/saves"
+@using StoryLoom.Services
+@inject ConversationService ConversationService
+@inject NavigationManager Nav
+@inject LogService Logger
+
+<div class="saves-container">
+    <div class="header">
+        <h2>💾 存档选择 (Saves)</h2>
+        <button class="new-story-btn" @onclick="CreateNewStory">
+            ➕ 新故事 (New Story)
+        </button>
+    </div>
+
+    @if (isLoading)
+    {
+        <div class="loading">加载中... (Loading...)</div>
+    }
+    else if (Saves == null || !Saves.Any())
+    {
+        <div class="no-saves">暂无存档。点击右上角开始新故事！</div>
+    }
+    else
+    {
+        <div class="saves-grid">
+            @foreach (var save in Saves)
+            {
+                <div class="save-card @(save.SaveName == ConversationService.CurrentSaveName ? "active" : "")" @onclick="() => LoadSave(save.SaveName)">
+                    <div class="card-header">
+                        <span class="save-title">@save.Title</span>
+                        @if (save.SaveName == ConversationService.CurrentSaveName)
+                        {
+                            <span class="active-badge">当前</span>
+                        }
+                    </div>
+                    <div class="save-time">@save.CreatedAt.ToString("yyyy-MM-dd HH:mm:ss")</div>
+                    <div class="save-summary">
+                        @(string.IsNullOrWhiteSpace(save.Summary) ? "暂无摘要 (No summary)" : save.Summary)
+                    </div>
+                </div>
+            }
+        </div>
+    }
+</div>
+
+@code {
+    private List<SaveMetadata>? Saves;
+    private bool isLoading = true;
+
+    protected override async Task OnInitializedAsync()
+    {
+        Logger.Log("Opening Saves Selection...");
+        
+        // Auto-save the current state before loading the list so we don't lose progress on switch
+        if (!string.IsNullOrEmpty(ConversationService.CurrentSaveName))
+        {
+            await ConversationService.SaveCurrentStateAsync();
+        }
+
+        await LoadSaveList();
+    }
+
+    private async Task LoadSaveList()
+    {
+        isLoading = true;
+        Saves = await ConversationService.GetAvailableSavesAsync();
+        isLoading = false;
+    }
+
+    private async Task LoadSave(string saveName)
+    {
+        // Save current one just in case
+        if (!string.IsNullOrEmpty(ConversationService.CurrentSaveName) && ConversationService.CurrentSaveName != saveName)
+        {
+            await ConversationService.SaveCurrentStateAsync();
+        }
+        
+        await ConversationService.LoadSaveAsync(saveName);
+        Nav.NavigateTo("story-generator");
+    }
+
+    private async Task CreateNewStory()
+    {
+        await ConversationService.StartNewConversationAsync();
+        Nav.NavigateTo("story-generator");
+    }
+}
+
+<style>
+    .saves-container {
+        padding: 20px;
+        height: 100%;
+        display: flex;
+        flex-direction: column;
+        color: #d4d4d4;
+    }
+
+    .header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 20px;
+        border-bottom: 1px solid #3e3e42;
+        padding-bottom: 10px;
+    }
+
+    h2 {
+        margin: 0;
+        color: #dcdcaa;
+        font-size: 20px;
+    }
+
+    .new-story-btn {
+        background-color: #094771;
+        color: white;
+        border: none;
+        padding: 8px 16px;
+        border-radius: 4px;
+        cursor: pointer;
+        font-weight: bold;
+    }
+
+    .new-story-btn:hover {
+        background-color: #1177bb;
+    }
+
+    .loading, .no-saves {
+        text-align: center;
+        margin-top: 50px;
+        color: #888;
+        font-size: 16px;
+    }
+
+    .saves-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+        gap: 20px;
+        overflow-y: auto;
+        padding-right: 10px;
+    }
+
+    .save-card {
+        background-color: #252526;
+        border: 1px solid #3e3e42;
+        border-radius: 8px;
+        padding: 15px;
+        cursor: pointer;
+        transition: transform 0.2s, box-shadow 0.2s, border-color 0.2s;
+        display: flex;
+        flex-direction: column;
+        height: 150px;
+    }
+
+    .save-card:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 4px 8px rgba(0,0,0,0.3);
+        border-color: #094771;
+    }
+
+    .save-card.active {
+        border-color: #4CAF50;
+    }
+
+    .card-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 5px;
+    }
+
+    .save-title {
+        font-weight: bold;
+        font-size: 16px;
+        color: #9cdcfe;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        flex: 1;
+    }
+
+    .active-badge {
+        background-color: #4CAF50;
+        color: white;
+        font-size: 10px;
+        padding: 2px 6px;
+        border-radius: 10px;
+        margin-left: 10px;
+        white-space: nowrap;
+    }
+
+    .save-time {
+        font-size: 12px;
+        color: #888;
+        margin-bottom: 10px;
+    }
+
+    .save-summary {
+        font-size: 13px;
+        color: #d4d4d4;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        display: -webkit-box;
+        -webkit-line-clamp: 4;
+        -webkit-box-orient: vertical;
+        line-height: 1.4;
+    }
+</style>

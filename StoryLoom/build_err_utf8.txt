@@ -1,0 +1,17 @@
+﻿  正在确定要还原的项目…
+  所有项目均是最新的，无法还原。
+D:\Project\Other\StoryLoom\StoryLoom\Services\ConversationService.cs(36,89): warning CS8601: 可能的 null 引用赋值。 [D:\Project\Other\StoryLoom\StoryLoom\StoryLoom_z0a2zp2r_wpftmp.csproj]
+D:\Project\Other\StoryLoom\StoryLoom\Services\ConversationService.cs(45,94): warning CS8601: 可能的 null 引用赋值。 [D:\Project\Other\StoryLoom\StoryLoom\StoryLoom_z0a2zp2r_wpftmp.csproj]
+D:\Project\Other\StoryLoom\StoryLoom\Pages\WorldBuilding.razor(11,20): error CS1061: “SettingsService”未包含“IsModelConfigured”的定义，并且找不到可接受第一个“SettingsService”类型参数的可访问扩展方法“IsModelConfigured”(是否缺少 using 指令或程序集引用?) [D:\Project\Other\StoryLoom\StoryLoom\StoryLoom_z0a2zp2r_wpftmp.csproj]
+D:\Project\Other\StoryLoom\StoryLoom\Pages\WorldBuilding.razor(150,23): error CS1061: “SettingsService”未包含“IsModelConfigured”的定义，并且找不到可接受第一个“SettingsService”类型参数的可访问扩展方法“IsModelConfigured”(是否缺少 using 指令或程序集引用?) [D:\Project\Other\StoryLoom\StoryLoom\StoryLoom_z0a2zp2r_wpftmp.csproj]
+
+生成失败。
+
+D:\Project\Other\StoryLoom\StoryLoom\Services\ConversationService.cs(36,89): warning CS8601: 可能的 null 引用赋值。 [D:\Project\Other\StoryLoom\StoryLoom\StoryLoom_z0a2zp2r_wpftmp.csproj]
+D:\Project\Other\StoryLoom\StoryLoom\Services\ConversationService.cs(45,94): warning CS8601: 可能的 null 引用赋值。 [D:\Project\Other\StoryLoom\StoryLoom\StoryLoom_z0a2zp2r_wpftmp.csproj]
+D:\Project\Other\StoryLoom\StoryLoom\Pages\WorldBuilding.razor(11,20): error CS1061: “SettingsService”未包含“IsModelConfigured”的定义，并且找不到可接受第一个“SettingsService”类型参数的可访问扩展方法“IsModelConfigured”(是否缺少 using 指令或程序集引用?) [D:\Project\Other\StoryLoom\StoryLoom\StoryLoom_z0a2zp2r_wpftmp.csproj]
+D:\Project\Other\StoryLoom\StoryLoom\Pages\WorldBuilding.razor(150,23): error CS1061: “SettingsService”未包含“IsModelConfigured”的定义，并且找不到可接受第一个“SettingsService”类型参数的可访问扩展方法“IsModelConfigured”(是否缺少 using 指令或程序集引用?) [D:\Project\Other\StoryLoom\StoryLoom\StoryLoom_z0a2zp2r_wpftmp.csproj]
+    2 个警告
+    2 个错误
+
+已用时间 00:00:02.32
