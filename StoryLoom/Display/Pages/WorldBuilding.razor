@@ -1,0 +1,686 @@
+@page "/world-building"
+@using StoryLoom.Data.Models
+@inject SettingsService Settings
+@inject ConversationService ConversationService
+@inject LlmService Llm
+@inject NavigationManager Nav
+@inject LogService Logger
+
+<div class="world-building">
+    <h2>🗺️ 世界构建 (World Building)</h2>
+    
+    @if (!Settings.IsModelConfigured)
+    {
+        <div class="alert-warning">
+            ⚠️ 尚未配置模型信息。请前往 <a href="settings">设置页面</a> 配置 API Key。
+        </div>
+    }
+
+    <div class="split-container">
+        <!-- Background Section -->
+        <div class="section-box">
+            <h3>背景设定 (Background)</h3>
+            <textarea @bind="Settings.Background" @onfocusout="SaveWorldSettings" disabled="@IsBackgroundLocked" rows="10" placeholder="描述你的故事世界观..."></textarea>
+            <div class="controls">
+                <button class="icon-btn" @onclick="() => IsBackgroundLocked = !IsBackgroundLocked" title="Lock/Unlock">
+                    @(IsBackgroundLocked ? "🔒" : "🔓")
+                </button>
+                <div class="right-controls">
+                     <button class="icon-btn" @onclick="UndoBackground" title="Undo">↩️</button>
+                     <button class="ai-btn" @onclick="EnhanceBackground" disabled="@(IsBackgroundLocked || IsEnhancing)">
+                        ✨ AI 完善
+                     </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Protagonist Section -->
+        <div class="section-box">
+            <h3>主角设定 (Protagonist)</h3>
+            <textarea @bind="Settings.Protagonist" @onfocusout="SaveWorldSettings" disabled="@IsProtagonistLocked" rows="10" placeholder="描述主角的性格、外貌..."></textarea>
+            <div class="controls">
+                <button class="icon-btn" @onclick="() => IsProtagonistLocked = !IsProtagonistLocked" title="Lock/Unlock">
+                    @(IsProtagonistLocked ? "🔒" : "🔓")
+                </button>
+                 <div class="right-controls">
+                     <button class="icon-btn" @onclick="UndoProtagonist" title="Undo">↩️</button>
+                     <button class="ai-btn" @onclick="EnhanceProtagonist" disabled="@(IsProtagonistLocked || IsEnhancing)">
+                        ✨ AI 完善
+                     </button>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    @if (IsEnhancing)
+    {
+        <div class="loading-overlay">
+            <div class="spinner"></div> AI 正在思考...
+        </div>
+    }
+
+    <hr class="sub-divider" />
+    
+    <div class="cards-section">
+        <h3>🌌 实体管理 (Entities)</h3>
+        
+        <div class="entity-category">
+            <div class="category-header">
+                <h4>👤 角色 (Characters)</h4>
+                <button class="btn-add" @onclick="() => OpenModal(new Character(), EntityType.Character)">➕ 新增角色</button>
+            </div>
+            <div class="cards-grid">
+                @foreach (var c in Settings.Characters)
+                {
+                    <div class="entity-card card-character" @onclick="() => OpenModal(c, EntityType.Character)">
+                        <div class="card-name">@(string.IsNullOrWhiteSpace(c.Name) ? "未命名角色" : c.Name)</div>
+                        <div class="card-summary">@(string.IsNullOrWhiteSpace(c.Summary) ? "暂无简介" : c.Summary)</div>
+                    </div>
+                }
+            </div>
+        </div>
+
+        <div class="entity-category">
+            <div class="category-header">
+                <h4>🚩 势力 (Factions)</h4>
+                <button class="btn-add" @onclick="() => OpenModal(new Faction(), EntityType.Faction)">➕ 新增势力</button>
+            </div>
+            <div class="cards-grid">
+                @foreach (var f in Settings.Factions)
+                {
+                    <div class="entity-card card-faction" @onclick="() => OpenModal(f, EntityType.Faction)">
+                        <div class="card-name">@(string.IsNullOrWhiteSpace(f.Name) ? "未命名势力" : f.Name)</div>
+                        <div class="card-summary">@(string.IsNullOrWhiteSpace(f.Summary) ? "暂无简介" : f.Summary)</div>
+                    </div>
+                }
+            </div>
+        </div>
+
+        <div class="entity-category">
+            <div class="category-header">
+                <h4>📦 物品 (Items)</h4>
+                <button class="btn-add" @onclick="() => OpenModal(new Item(), EntityType.Item)">➕ 新增物品</button>
+            </div>
+            <div class="cards-grid">
+                @foreach (var i in Settings.Items)
+                {
+                    <div class="entity-card card-item" @onclick="() => OpenModal(i, EntityType.Item)">
+                        <div class="card-name">@(string.IsNullOrWhiteSpace(i.Name) ? "未命名物品" : i.Name)</div>
+                        <div class="card-summary">@(string.IsNullOrWhiteSpace(i.Summary) ? "暂无简介" : i.Summary)</div>
+                    </div>
+                }
+            </div>
+        </div>
+
+        <div class="entity-category">
+            <div class="category-header">
+                <h4>🎬 设定/场景 (Scenes)</h4>
+                <button class="btn-add" @onclick="() => OpenModal(new Scene(), EntityType.Scene)">➕ 新增场景</button>
+            </div>
+            <div class="cards-grid">
+                @foreach (var s in Settings.Scenes)
+                {
+                    <div class="entity-card card-scene" @onclick="() => OpenModal(s, EntityType.Scene)">
+                        <div class="card-name">@(string.IsNullOrWhiteSpace(s.Name) ? "未命名场景" : s.Name)</div>
+                        <div class="card-summary">@(string.IsNullOrWhiteSpace(s.Summary) ? "暂无简介" : s.Summary)</div>
+                    </div>
+                }
+            </div>
+        </div>
+    </div>
+
+    @if (IsModalOpen)
+    {
+        <div class="modal-overlay" @onclick="CloseModal">
+            <div class="modal-content" @onclick:stopPropagation>
+                <div class="modal-header">
+                    <h3>编辑 @GetEntityTypeName(ActiveEntityType)</h3>
+                    <button class="close-btn" @onclick="CloseModal">✕</button>
+                </div>
+                <div class="modal-body">
+                    <div class="form-group">
+                        <label>名称 (Name)</label>
+                        <input type="text" @bind="ActiveEntityName" />
+                    </div>
+                    <div class="form-group">
+                        <label>简介 (Summary)</label>
+                        <textarea rows="3" @bind="ActiveEntitySummary"></textarea>
+                    </div>
+                    <div class="form-group">
+                        <label>详细描述 (Descriptions / Origins)</label>
+                        @for (int i = 0; i < ActiveEntityDescriptions.Count; i++)
+                        {
+                            var index = i;
+                            <div class="desc-row">
+                                <textarea rows="2" @bind="ActiveEntityDescriptions[index]"></textarea>
+                                <button class="btn-remove" @onclick="() => ActiveEntityDescriptions.RemoveAt(index)">🗑️</button>
+                            </div>
+                        }
+                        <button class="btn-add-minor" @onclick="() => ActiveEntityDescriptions.Add(string.Empty)">➕ 添加描述属性</button>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    @if (!IsNewEntity)
+                    {
+                        <button class="btn-delete" @onclick="DeleteEntity">删除 (Delete)</button>
+                    }
+                    <button class="btn-save" @onclick="SaveEntity">保存 (Save)</button>
+                </div>
+            </div>
+        </div>
+    }
+</div>
+
+@code {
+    // UI 状态标志
+    private bool IsBackgroundLocked = false;
+    private bool IsProtagonistLocked = false;
+    private bool IsEnhancing = false;
+
+    // 简单的撤销栈 (目前仅支持单步撤销)，用于回滚 AI 的修改
+    private string LastBackground = "";
+    private string LastProtagonist = "";
+
+    protected override void OnInitialized()
+    {
+        LastBackground = Settings.Background;
+        LastProtagonist = Settings.Protagonist;
+    }
+
+    /// <summary>
+    /// 调用 LLM 服务来润色背景描述。
+    /// 处理 UI 状态（加载中、锁定）并记录错误日志。
+    /// </summary>
+    private async Task EnhanceBackground()
+    {
+        if (!VerifyConfig()) return;
+        
+        Logger.Log("User requested background enhancement.");
+        IsEnhancing = true;
+        LastBackground = Settings.Background; // 保存当前状态以便撤销
+        try
+        {
+            // 调用 LLM 服务，使用 "Background" 作为上下文类型
+            Settings.Background = await Llm.EnhanceTextAsync(Settings.Background, "Background");
+            await SaveWorldSettings();
+        }
+        catch (Exception ex) {_ = ex; /* LlmService 会记录日志，UI 只需恢复状态 */ }
+        finally
+        {
+            IsEnhancing = false;
+        }
+    }
+
+    /// <summary>
+    /// 调用 LLM 服务来润色主角描述。
+    /// </summary>
+    private async Task EnhanceProtagonist()
+    {
+        if (!VerifyConfig()) return;
+
+        Logger.Log("User requested protagonist enhancement.");
+        IsEnhancing = true;
+        LastProtagonist = Settings.Protagonist; // 保存状态以便撤销
+        try
+        {
+            Settings.Protagonist = await Llm.EnhanceTextAsync(Settings.Protagonist, "Protagonist");
+            await SaveWorldSettings();
+        }
+        catch (Exception ex) { _ = ex; }
+        finally
+        {
+            IsEnhancing = false;
+        }
+    }
+
+    private async Task UndoBackground() 
+    {
+        Logger.Log("User undid background change.");
+        Settings.Background = LastBackground;
+        await SaveWorldSettings();
+    }
+
+    private async Task UndoProtagonist() 
+    {
+        Logger.Log("User undid protagonist change.");
+        Settings.Protagonist = LastProtagonist;
+        await SaveWorldSettings();
+    }
+
+    private async Task SaveWorldSettings()
+    {
+        await ConversationService.SaveCurrentStateAsync();
+        Logger.Log("World settings saved automatically.");
+    }
+
+    /// <summary>
+    /// 在尝试 AI 操作前，检查 API 配置是否有效。
+    /// 如果配置缺失，将跳转到设置页面。
+    /// </summary>
+    private bool VerifyConfig()
+    {
+        if (!Settings.IsModelConfigured)
+        {
+            Logger.Log("Config verification failed in WorldBuilding. Redirecting to settings.", LogLevel.Warning);
+            Nav.NavigateTo("settings");
+            return false;
+        }
+        return true;
+    }
+
+    // --- Entity System ---
+    private enum EntityType { None, Character, Faction, Item, Scene }
+    private bool IsModalOpen = false;
+    private EntityType ActiveEntityType = EntityType.None;
+    private object? ActiveEntity = null;
+    private bool IsNewEntity = false;
+
+    private string ActiveEntityName = "";
+    private string ActiveEntitySummary = "";
+    private List<string> ActiveEntityDescriptions = new();
+
+    private void OpenModal(object entity, EntityType type)
+    {
+        ActiveEntity = entity;
+        ActiveEntityType = type;
+        IsNewEntity = false;
+
+        // Determine if it's new based on collection containment
+        if (type == EntityType.Character && !Settings.Characters.Contains((Character)entity)) IsNewEntity = true;
+        if (type == EntityType.Faction && !Settings.Factions.Contains((Faction)entity)) IsNewEntity = true;
+        if (type == EntityType.Item && !Settings.Items.Contains((Item)entity)) IsNewEntity = true;
+        if (type == EntityType.Scene && !Settings.Scenes.Contains((Scene)entity)) IsNewEntity = true;
+
+        dynamic dyn = entity;
+        ActiveEntityName = dyn.Name ?? "";
+        ActiveEntitySummary = dyn.Summary ?? "";
+        
+        ActiveEntityDescriptions.Clear();
+        if (type == EntityType.Item)
+        {
+            if (dyn.Description != null) ActiveEntityDescriptions.AddRange(dyn.Description);
+        }
+        else if (type == EntityType.Faction || type == EntityType.Scene)
+        {
+            if (dyn.Descriptions != null) ActiveEntityDescriptions.AddRange(dyn.Descriptions);
+        }
+        else if (type == EntityType.Character)
+        {
+            if (dyn.Origins != null) ActiveEntityDescriptions.AddRange(dyn.Origins);
+        }
+        
+        IsModalOpen = true;
+    }
+
+    private async Task SaveEntity()
+    {
+        if (ActiveEntity == null) return;
+        dynamic dyn = ActiveEntity;
+        dyn.Name = ActiveEntityName;
+        dyn.Summary = ActiveEntitySummary;
+
+        if (ActiveEntityType == EntityType.Item)
+            dyn.Description = new List<string>(ActiveEntityDescriptions);
+        else if (ActiveEntityType == EntityType.Faction || ActiveEntityType == EntityType.Scene)
+            dyn.Descriptions = new List<string>(ActiveEntityDescriptions);
+        else if (ActiveEntityType == EntityType.Character)
+            dyn.Origins = new List<string>(ActiveEntityDescriptions);
+
+        // Add if new
+        if (IsNewEntity)
+        {
+            if (ActiveEntityType == EntityType.Character) Settings.Characters.Add((Character)ActiveEntity);
+            if (ActiveEntityType == EntityType.Faction) Settings.Factions.Add((Faction)ActiveEntity);
+            if (ActiveEntityType == EntityType.Item) Settings.Items.Add((Item)ActiveEntity);
+            if (ActiveEntityType == EntityType.Scene) Settings.Scenes.Add((Scene)ActiveEntity);
+        }
+
+        await SaveWorldSettings();
+        CloseModal();
+    }
+
+    private async Task DeleteEntity()
+    {
+        if (ActiveEntity == null) return;
+        
+        if (ActiveEntityType == EntityType.Character) Settings.Characters.Remove((Character)ActiveEntity);
+        if (ActiveEntityType == EntityType.Faction) Settings.Factions.Remove((Faction)ActiveEntity);
+        if (ActiveEntityType == EntityType.Item) Settings.Items.Remove((Item)ActiveEntity);
+        if (ActiveEntityType == EntityType.Scene) Settings.Scenes.Remove((Scene)ActiveEntity);
+
+        await SaveWorldSettings();
+        CloseModal();
+    }
+
+    private void CloseModal()
+    {
+        IsModalOpen = false;
+        ActiveEntity = null;
+    }
+
+    private string GetEntityTypeName(EntityType type) => type switch
+    {
+        EntityType.Character => "角色 (Character)",
+        EntityType.Faction => "势力 (Faction)",
+        EntityType.Item => "物品 (Item)",
+        EntityType.Scene => "设定/场景 (Scene)",
+        _ => "Entity"
+    };
+}
+
+<style>
+    .world-building {
+        height: 100%;
+        display: flex;
+        flex-direction: column;
+        overflow-y: auto;
+    }
+
+    /* Layout */
+    .wb-container {
+        display: flex;
+        flex-direction: column;
+        height: 100%;
+        flex: 1;
+        background-color: #1e1e1e;
+        color: #d4d4d4;
+        padding: 10px;
+        border-radius: 4px;
+        margin-bottom: 20px;
+    }
+
+    .alert-warning {
+        background-color: #3e2723;
+        color: #ffcc80;
+        padding: 10px;
+        border-radius: 4px;
+        margin-bottom: 20px;
+    }
+    
+    .alert-warning a { color: #ffcc80; text-decoration: underline; }
+
+    .split-container {
+        display: flex;
+        gap: 20px;
+    }
+
+    .section-box {
+        flex: 1;
+        display: flex;
+        flex-direction: column;
+        background-color: #252526;
+        border-radius: 6px;
+        padding: 15px;
+    }
+
+    h3 { margin-top: 0; color: #dcdcaa; font-size: 16px; }
+
+    textarea {
+        flex: 1;
+        background-color: #1e1e1e;
+        color: #d4d4d4;
+        border: 1px solid #3e3e42;
+        padding: 10px;
+        border-radius: 4px;
+        resize: none;
+        font-family: inherit;
+    }
+    
+    textarea:disabled { opacity: 0.6; cursor: not-allowed; }
+
+    .controls {
+        display: flex;
+        justify-content: space-between;
+        margin-top: 10px;
+    }
+
+    .right-controls { display: flex; gap: 10px; }
+
+    .icon-btn, .ai-btn {
+        background-color: #3e3e42;
+        color: #d4d4d4;
+        border: none;
+        padding: 8px 12px;
+        border-radius: 4px;
+        cursor: pointer;
+    }
+
+    .icon-btn:hover, .ai-btn:hover { background-color: #505055; }
+
+    .ai-btn {
+        background-color: #4CAF50;
+        color: white;
+    }
+    .ai-btn:hover { background-color: #66bb6a; }
+    .ai-btn:disabled { background-color: #2e3e30; color: gray; cursor: default; }
+
+    .loading-overlay {
+        position: fixed;
+        bottom: 20px;
+        right: 20px;
+        background-color: #0e639c;
+        color: white;
+        padding: 10px 20px;
+        border-radius: 20px;
+        box-shadow: 0 4px 6px rgba(0,0,0,0.3);
+        display: flex;
+        align-items: center;
+        gap: 10px;
+    }
+
+    .sub-divider {
+        border: 0;
+        height: 1px;
+        background: #3e3e42;
+        margin: 20px 0;
+    }
+
+    .cards-section {
+        margin-top: 20px;
+    }
+
+    .entity-category {
+        margin-bottom: 25px;
+    }
+
+    .category-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 10px;
+        border-bottom: 1px solid #333;
+        padding-bottom: 5px;
+    }
+
+    .category-header h4 {
+        margin: 0;
+        color: #dcdcaa;
+    }
+
+    .btn-add {
+        background-color: #094771;
+        color: white;
+        border: none;
+        padding: 4px 10px;
+        border-radius: 4px;
+        cursor: pointer;
+        font-size: 12px;
+    }
+
+    .btn-add:hover { background-color: #1177bb; }
+
+    .cards-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+        gap: 15px;
+    }
+
+    .entity-card {
+        background-color: #252526;
+        border: 2px solid transparent; /* default */
+        border-radius: 8px;
+        padding: 12px;
+        cursor: pointer;
+        transition: transform 0.2s, box-shadow 0.2s;
+        min-height: 80px;
+        display: flex;
+        flex-direction: column;
+    }
+    .entity-card:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 4px 8px rgba(0,0,0,0.3);
+    }
+
+    /* Colors Requested by User */
+    .card-character { border-color: #FFD700; } /* 金色 */
+    .card-faction { border-color: #F44336; } /* 红色 */
+    .card-item { border-color: #FFFFFF; } /* 白色 */
+    .card-scene { border-color: #9E9E9E; } /* 灰色 */
+
+    .card-name {
+        font-weight: bold;
+        margin-bottom: 5px;
+        color: #9cdcfe;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+
+    .card-summary {
+        font-size: 12px;
+        color: #888;
+        display: -webkit-box;
+        -webkit-line-clamp: 2;
+        -webkit-box-orient: vertical;
+        overflow: hidden;
+    }
+
+    /* Modal Styling */
+    .modal-overlay {
+        position: fixed;
+        top: 0; left: 0; right: 0; bottom: 0;
+        background-color: rgba(0,0,0,0.5);
+        backdrop-filter: blur(5px);
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        z-index: 1000;
+    }
+
+    .modal-content {
+        background-color: #1e1e1e;
+        border-radius: 12px;
+        width: 500px;
+        max-width: 90vw;
+        max-height: 90vh;
+        display: flex;
+        flex-direction: column;
+        border: 1px solid #3e3e42;
+        box-shadow: 0 8px 16px rgba(0,0,0,0.5);
+    }
+
+    .modal-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 15px 20px;
+        border-bottom: 1px solid #333;
+    }
+
+    .modal-header h3 { margin: 0; color: #dcdcaa; }
+
+    .close-btn {
+        background: none;
+        border: none;
+        color: #d4d4d4;
+        font-size: 18px;
+        cursor: pointer;
+    }
+
+    .modal-body {
+        padding: 20px;
+        overflow-y: auto;
+        display: flex;
+        flex-direction: column;
+        gap: 15px;
+    }
+
+    .form-group {
+        display: flex;
+        flex-direction: column;
+        gap: 5px;
+    }
+
+    .form-group label {
+        color: #9cdcfe;
+        font-size: 13px;
+        font-weight: bold;
+    }
+
+    .form-group input, .form-group textarea {
+        background-color: #252526;
+        color: #d4d4d4;
+        border: 1px solid #3e3e42;
+        padding: 8px;
+        border-radius: 4px;
+        font-family: inherit;
+    }
+
+    .desc-row {
+        display: flex;
+        gap: 10px;
+        margin-bottom: 5px;
+        align-items: flex-start;
+    }
+
+    .desc-row textarea { flex: 1; }
+
+    .btn-remove {
+        background: none;
+        border: none;
+        cursor: pointer;
+        font-size: 16px;
+        padding: 5px;
+    }
+
+    .btn-add-minor {
+        background-color: #333;
+        color: #d4d4d4;
+        border: 1px dashed #555;
+        padding: 6px;
+        border-radius: 4px;
+        cursor: pointer;
+        font-size: 12px;
+        align-self: flex-start;
+    }
+    .btn-add-minor:hover { background-color: #444; }
+
+    .modal-footer {
+        padding: 15px 20px;
+        border-top: 1px solid #333;
+        display: flex;
+        justify-content: flex-end;
+        gap: 10px;
+    }
+
+    .btn-save {
+        background-color: #4CAF50;
+        color: white;
+        border: none;
+        padding: 8px 16px;
+        border-radius: 4px;
+        cursor: pointer;
+        font-weight: bold;
+    }
+    .btn-save:hover { background-color: #45a049; }
+
+    .btn-delete {
+        background-color: transparent;
+        color: #F44336;
+        border: 1px solid #F44336;
+        padding: 8px 16px;
+        border-radius: 4px;
+        cursor: pointer;
+    }
+    .btn-delete:hover { background-color: rgba(244, 67, 54, 0.1); }
+</style>

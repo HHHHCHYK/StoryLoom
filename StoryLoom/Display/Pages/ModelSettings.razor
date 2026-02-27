@@ -57,6 +57,11 @@
         <input type="password" @bind="Settings.ApiKey" @onfocusout="Settings.NotifyStateChanged" placeholder="Your Global API Key" />
     </div>
 
+    <div class="form-group">
+                    <label>打字机速度 (Text Speed ms): @Settings.TextSpeed</label>
+                    <input type="number" min="1" max="500" @bind="Settings.TextSpeed" @onfocusout="Settings.NotifyStateChanged" />
+                </div>
+
     <hr />
 
     <div class="developer-mode">
@@ -82,10 +87,7 @@
                      <input type="number" step="100" @bind="Settings.SummaryTokenThreshold" @onfocusout="Settings.NotifyStateChanged" />
                 </div>
 
-                <div class="form-group">
-                    <label>打字机速度 (Text Speed ms): @Settings.TextSpeed</label>
-                    <input type="number" min="1" max="500" @bind="Settings.TextSpeed" @onfocusout="Settings.NotifyStateChanged" />
-                </div>
+                
             </div>
         }
     </div>

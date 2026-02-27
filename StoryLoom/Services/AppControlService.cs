@@ -7,14 +7,12 @@ public class AppControlService
     private readonly SettingsService _settingsService;
     private readonly LogService _logger;
     private readonly ConversationService _conversationService;
-    private readonly LlmService _llmService;
 
     public AppControlService(SettingsService settingsService, LogService logger, ConversationService conversationService, LlmService llmService)
     {
         _settingsService = settingsService;
         _logger = logger;
         _conversationService = conversationService;
-        _llmService = llmService;
     }
 
     public async Task PerformShutdownAsync()

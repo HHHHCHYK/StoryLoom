@@ -14,10 +14,48 @@
         <PackageReference Include="Microsoft.Extensions.Http" Version="10.0.3" />
         <PackageReference Include="Microsoft.ML.Tokenizers" Version="2.0.0" />
         <PackageReference Include="Microsoft.ML.Tokenizers.Data.O200kBase" Version="2.0.0" />
+        <PackageReference Include="Microsoft.SemanticKernel" Version="1.72.0" />
+        <PackageReference Include="Microsoft.SemanticKernel.Agents.Core" Version="1.72.0" />
     </ItemGroup>
 
     <ItemGroup>
         <Content Update="wwwroot\**" CopyToOutputDirectory="PreserveNewest" />
+    </ItemGroup>
+
+
+    <ItemGroup>
+      <UpToDateCheckInput Remove="Shared\MainLayout.razor" />
+      <UpToDateCheckInput Remove="Shared\NavMenu.razor" />
+      <UpToDateCheckInput Remove="Shared\ToastContainer.razor" />
+    </ItemGroup>
+
+    <ItemGroup>
+      <ApplicationDefinition Include="Display\App.xaml">
+        <Generator>MSBuild:Compile</Generator>
+        <XamlRuntime>Wpf</XamlRuntime>
+        <SubType>Designer</SubType>
+      </ApplicationDefinition>
+    </ItemGroup>
+
+    <ItemGroup>
+      <Page Update="Display\MainWindow.xaml">
+        <Generator>MSBuild:Compile</Generator>
+        <XamlRuntime>Wpf</XamlRuntime>
+        <SubType>Designer</SubType>
+      </Page>
+    </ItemGroup>
+
+    <ItemGroup>
+      <_ContentIncludedByDefault Remove="wwwroot\index.html" />
+    </ItemGroup>
+
+    <ItemGroup>
+      <Folder Include="Agents\Plugins\" />
+      <Folder Include="Agents\Prompts\" />
+    </ItemGroup>
+
+    <ItemGroup>
+      <None Include="wwwroot\index.html" />
     </ItemGroup>
 
 </Project>

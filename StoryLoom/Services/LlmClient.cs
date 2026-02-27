@@ -1,10 +1,6 @@
-using System;
-using System.Collections.Generic;
 using System.Net.Http;
 using System.Text;
 using System.Text.Json;
-using System.Threading.Tasks;
-using System.Linq;
 using Microsoft.ML.Tokenizers;
 
 namespace StoryLoom.Services
@@ -72,7 +68,11 @@ namespace StoryLoom.Services
             }
         }
 
-        public async IAsyncEnumerable<string> StreamCompletionAsync(IEnumerable<ChatMessage> messages, double temperature, int maxTokens, bool isPromptModel = false)
+        public async IAsyncEnumerable<string> StreamCompletionAsync(
+            IEnumerable<ChatMessage> messages,
+            double temperature,
+            int maxTokens,
+            bool isPromptModel = false)
         {
             _logger.Log($"[{nameof(LlmClient)}] {nameof(StreamCompletionAsync)} called. Temperature: {temperature}, MaxTokens: {maxTokens}. Message count: {messages.Count()}, isPromptModel: {isPromptModel}");
 

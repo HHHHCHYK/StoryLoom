@@ -4,6 +4,7 @@ using System.IO;
 using System.Linq;
 using System.Text.Json;
 using System.Threading.Tasks;
+using StoryLoom.Data.Models;
 
 namespace StoryLoom.Services
 {
@@ -67,6 +68,10 @@ namespace StoryLoom.Services
             // Reset World Settings in SettingsService (User needs to input new ones)
             _settingsService.Background = "";
             _settingsService.Protagonist = "";
+            _settingsService.Characters = new List<Character>();
+            _settingsService.Factions = new List<Faction>();
+            _settingsService.Items = new List<Item>();
+            _settingsService.Scenes = new List<Scene>();
             _settingsService.NotifyStateChanged();
 
             // 3. Create Directory
@@ -140,6 +145,10 @@ namespace StoryLoom.Services
                     {
                         _settingsService.Background = worldData.Background;
                         _settingsService.Protagonist = worldData.Protagonist;
+                        _settingsService.Characters = worldData.Characters ?? new List<Character>();
+                        _settingsService.Factions = worldData.Factions ?? new List<Faction>();
+                        _settingsService.Items = worldData.Items ?? new List<Item>();
+                        _settingsService.Scenes = worldData.Scenes ?? new List<Scene>();
                         _settingsService.NotifyStateChanged();
                     }
                 }
@@ -191,7 +200,11 @@ namespace StoryLoom.Services
                 var worldData = new WorldSettings
                 {
                     Background = _settingsService.Background,
-                    Protagonist = _settingsService.Protagonist
+                    Protagonist = _settingsService.Protagonist,
+                    Characters = _settingsService.Characters,
+                    Factions = _settingsService.Factions,
+                    Items = _settingsService.Items,
+                    Scenes = _settingsService.Scenes
                 };
                 string worldPath = Path.Combine(savePath, WorldFile);
                 string worldJson = JsonSerializer.Serialize(worldData, new JsonSerializerOptions { WriteIndented = true });
@@ -274,6 +287,10 @@ namespace StoryLoom.Services
         {
             public string Background { get; set; } = "";
             public string Protagonist { get; set; } = "";
+            public List<Character> Characters { get; set; } = new();
+            public List<Faction> Factions { get; set; } = new();
+            public List<Item> Items { get; set; } = new();
+            public List<Scene> Scenes { get; set; } = new();
         }
 
         public async Task<List<SaveMetadata>> GetAvailableSavesAsync()

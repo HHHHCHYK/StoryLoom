@@ -1,6 +1,8 @@
 using System;
 using System.IO;
 using System.Text.Json;
+using System.Collections.Generic;
+using StoryLoom.Data.Models;
 
 namespace StoryLoom.Services
 {
@@ -40,6 +42,12 @@ namespace StoryLoom.Services
         public string Background { get; set; } = "";
         /// <summary>主角设定。</summary>
         public string Protagonist { get; set; } = "";
+
+        // Entity Collections
+        public List<Character> Characters { get; set; } = new();
+        public List<Faction> Factions { get; set; } = new();
+        public List<Item> Items { get; set; } = new();
+        public List<Scene> Scenes { get; set; } = new();
 
         // Helper to check if model is configured
         /// <summary>判断正文模型是否已配置（检查 Key 和 URL 是否非空）。</summary>

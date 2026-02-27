@@ -76,13 +76,13 @@
         }
         
         await ConversationService.LoadSaveAsync(saveName);
-        Nav.NavigateTo("story-generator");
+        Nav.NavigateTo("world-building");
     }
 
     private async Task CreateNewStory()
     {
         await ConversationService.StartNewConversationAsync();
-        Nav.NavigateTo("story-generator");
+        Nav.NavigateTo("world-building");
     }
 }
 

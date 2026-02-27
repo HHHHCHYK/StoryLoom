@@ -75,7 +75,7 @@
                 @if (IsActionMenuOpen)
                 {
                     <div class="dropdown-menu">
-                        <button @onclick='() => SelectAction("🎭 Actions")'>🤖 Auto</button>
+                        <button @onclick='() => SelectAction("🤖 Auto")'>🤖 Auto</button>
                         <button @onclick='() => SelectAction("🎬 Action")'>🎬 Action</button>
                         <button @onclick='() => SelectAction("🗣️ Speak")'>🗣️ Speak</button>
                         <button @onclick='() => SelectAction("💭 Think")'>💭 Think</button>
@@ -227,7 +227,7 @@
             // Wait until the typewriter buffer is fully consumed
             while (_typewriterBuffer.Length > 0)
             {
-                await Task.Delay(50);
+                await Task.Delay(10);
             }
 
             // 4. Save Final AI Message

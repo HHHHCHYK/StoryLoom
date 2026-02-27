@@ -4,8 +4,6 @@ using System.Windows;
 
 namespace StoryLoom
 {
-    // 这里肯定被 Rider 错改成了 public partial class MainUI : Application
-    // 请把它改回 App！
     /// <summary>
     /// App.xaml 的交互逻辑。
     /// 负责应用程序的启动流程以及全局异常捕获和日志记录。
@@ -26,8 +24,7 @@ namespace StoryLoom
             // 全局异常处理：捕获非 UI 线程抛出的未处理异常
             AppDomain.CurrentDomain.UnhandledException += (s, args) =>
             {
-                var ex = args.ExceptionObject as Exception;
-                if (ex != null)
+                if (args.ExceptionObject is Exception ex)
                 {
                     _logger.LogError(ex, "AppDomain.UnhandledException");
                 }
