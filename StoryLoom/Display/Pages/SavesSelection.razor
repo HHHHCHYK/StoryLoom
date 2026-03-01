@@ -1,3 +1,4 @@
+@page "/"
 @page "/saves"
 @using StoryLoom.Services
 @inject ConversationService ConversationService
@@ -76,7 +77,7 @@
         }
         
         await ConversationService.LoadSaveAsync(saveName);
-        Nav.NavigateTo("world-building");
+        Nav.NavigateTo("story-generator");
     }
 
     private async Task CreateNewStory()

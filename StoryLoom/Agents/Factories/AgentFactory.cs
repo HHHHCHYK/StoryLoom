@@ -1,6 +1,5 @@
 ﻿using Microsoft.SemanticKernel.Agents;
 using StoryLoom.Data.Models;
-
 namespace StoryLoom.Agents.Factories;
 
 public static class AgentFactory

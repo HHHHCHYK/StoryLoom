@@ -48,8 +48,8 @@ public partial class MainWindow : Window
     {
         if (e.ClickCount == 2)
         {
-            if (this.WindowState == WindowState.Maximized)
-                this.WindowState = WindowState.Normal;
+            if (WindowState == WindowState.Maximized)
+                WindowState = WindowState.Normal;
             else
                 this.WindowState = WindowState.Maximized;
             return;

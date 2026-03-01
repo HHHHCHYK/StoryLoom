@@ -1,12 +1,10 @@
-@page "/"
 @page "/story-generator"
-@using StoryLoom.Services
 @inject ConversationService ConversationService
 @inject LlmService LlmService
 @inject SettingsService SettingsService
 @inject LogService Logger
 @inject NavigationManager Nav
-@inject IJSRuntime JS
+@inject ToastService Toast
 @implements IDisposable
 
 <div class="story-container">
@@ -14,17 +12,20 @@
     <div class="story-header">
         <div class="title-section">
             <span class="icon">📖</span>
-            <input class="title-input" 
+            <input class="title-input"
                    value="@ConversationService.CurrentConversation.Title"
                    @onchange="UpdateTitle"
-                   placeholder="Story Title..." />
+                   placeholder="Story Title..."/>
         </div>
         <div class="header-actions">
+            <button class="btn-icon" title="导出存档 (Export)" @onclick="ExportConversation" disabled="@IsGenerating">
+                💾 导出
+            </button>
             <button class="btn-icon" title="New Conversation" @onclick="StartNewConversation" disabled="@IsGenerating">
-                🆕 New Story
+                新故事
             </button>
             <button class="btn-icon" title="Settings" @onclick='() => Nav.NavigateTo("model-settings")'>
-                 ⚙️
+                ⚙️
             </button>
         </div>
     </div>
@@ -54,7 +55,7 @@
 
         @if (IsGenerating)
         {
-             <div class="message-row ai-row">
+            <div class="message-row ai-row">
                 <div class="message-bubble generating">
                     <div class="message-role">AI</div>
                     <div class="message-content">
@@ -87,12 +88,14 @@
                 <button class="btn-tool" @onclick="ToggleSuggestionMenu">💡 Suggest</button>
                 @if (IsSuggestionMenuOpen)
                 {
-                     <div class="dropdown-menu suggestions-menu">
+                    <div class="dropdown-menu suggestions-menu">
                         <div class="menu-header">
-                            <span class="menu-title">Suggestions (@(string.IsNullOrEmpty(SelectedAction) || SelectedAction == "🎭 Actions" ? "Auto" : SelectedAction))</span>
-                            <button class="btn-icon-small" title="Regenerate" @onclick="RegenerateSuggestions">🔄</button>
+                            <span
+                                class="menu-title">Suggestions (@(string.IsNullOrEmpty(SelectedAction) || SelectedAction == "🎭 Actions" ? "Auto" : SelectedAction))</span>
+                            <button class="btn-icon-small" title="Regenerate" @onclick="RegenerateSuggestions">🔄
+                            </button>
                         </div>
-                        
+
                         @if (IsLoadingSuggestions)
                         {
                             <div class="menu-item-text">Loading suggestions...</div>
@@ -101,39 +104,41 @@
                         {
                             @foreach (var suggestion in Suggestions)
                             {
-                                 <button class="menu-item suggestion-item" @onclick="() => SelectSuggestion(suggestion)">
+                                <button class="menu-item suggestion-item" @onclick="() => SelectSuggestion(suggestion)">
                                     @suggestion
                                 </button>
                             }
                         }
                         else
                         {
-                             <div class="menu-item-text">No suggestions available.</div>
+                            <div class="menu-item-text">No suggestions available.</div>
                         }
                     </div>
                 }
             </div>
-            
+
             @if (IsActionMenuOpen || IsSuggestionMenuOpen)
             {
                 <div class="menu-backdrop" @onclick="CloseMenus"></div>
             }
-            
+
             <div class="spacer"></div>
             <span class="status-text">@(IsGenerating ? "Writing..." : "Ready")</span>
         </div>
-        
+
         <div class="input-row">
-            <textarea @bind="UserPrompt" 
-                      @bind:event="oninput" 
-                      @onkeydown="HandleKeyDown" 
+            <textarea @bind="UserPrompt"
+                      @bind:event="oninput"
+                      @onkeydown="HandleKeyDown"
                       placeholder="What happens next? (Ctrl+Enter to send)"
                       disabled="@IsGenerating"></textarea>
             <div class="input-actions-col">
-                <button class="btn-tool btn-enhance" @onclick="EnhancePromptAsync" disabled="@(IsGenerating || string.IsNullOrWhiteSpace(UserPrompt) || IsEnhancing)">
+                <button class="btn-tool btn-enhance" @onclick="EnhancePromptAsync"
+                        disabled="@(IsGenerating || string.IsNullOrWhiteSpace(UserPrompt) || IsEnhancing)">
                     @(IsEnhancing ? "✨🔄" : "✨ Enhance")
                 </button>
-                <button class="btn-send" @onclick="SendMessage" disabled="@(IsGenerating || string.IsNullOrWhiteSpace(UserPrompt) || IsEnhancing)">
+                <button class="btn-send" @onclick="SendMessage"
+                        disabled="@(IsGenerating || string.IsNullOrWhiteSpace(UserPrompt) || IsEnhancing)">
                     Send 🚀
                 </button>
             </div>
@@ -155,9 +160,9 @@
     {
         if (!SettingsService.IsStoryContextReady)
         {
-             Logger.Log("Story context missing in Generator. Redirecting to WorldBuilding.");
-             Nav.NavigateTo("world-building");
-             return;
+            Logger.Log("Story context missing in Generator. Redirecting to WorldBuilding.");
+            Nav.NavigateTo("world-building");
+            return;
         }
 
         ConversationService.OnConversationUpdated += OnConversationUpdated;
@@ -171,10 +176,7 @@
 
     private void OnConversationUpdated()
     {
-        InvokeAsync(() => {
-            StateHasChanged();
-            ScrollToBottom();
-        });
+        InvokeAsync(StateHasChanged);
     }
 
     private async Task UpdateTitle(ChangeEventArgs e)
@@ -201,7 +203,7 @@
         CurrentStreamText = "";
         _typewriterBuffer.Clear();
         _isTypewriterRunning = true;
-        
+
         // Start background consumption task for typewriter effect
         var typewriterTask = RunTypewriterAsync();
 
@@ -232,7 +234,7 @@
 
             // 4. Save Final AI Message
             await ConversationService.AddAiMessageAsync(CurrentStreamText);
-            
+
             // CLEAR SUGGESTION CACHE here so next time we click Suggest it fetches new ones
             Suggestions.Clear();
         }
@@ -240,13 +242,13 @@
         {
             Logger.LogError(ex, "SendMessage");
             CurrentStreamText += "\n[Error generating response]";
-            await ConversationService.AddAiMessageAsync(CurrentStreamText); 
+            await ConversationService.AddAiMessageAsync(CurrentStreamText);
         }
         finally
         {
             _isTypewriterRunning = false;
             await typewriterTask; // Ensure it finishes safely
-            
+
             IsGenerating = false;
             CurrentStreamText = "";
             StateHasChanged();
@@ -263,11 +265,11 @@
                 // Take one character
                 char ch = _typewriterBuffer[0];
                 _typewriterBuffer.Remove(0, 1);
-                
+
                 CurrentStreamText += ch;
                 StateHasChanged();
                 ScrollToBottom();
-                
+
                 await Task.Delay(SettingsService.TextSpeed);
             }
             else
@@ -280,10 +282,10 @@
     private async Task EnhancePromptAsync()
     {
         if (string.IsNullOrWhiteSpace(UserPrompt) || IsGenerating || IsEnhancing) return;
-        
+
         IsEnhancing = true;
         StateHasChanged();
-        
+
         try
         {
             var enhanced = await LlmService.EnhanceTextAsync(UserPrompt, "auto");
@@ -308,9 +310,78 @@
         // Event will re-render
     }
 
+    private async Task ExportConversation()
+    {
+        if (IsGenerating) return;
+
+        var title = ConversationService.CurrentConversation.Title ?? "Untitled";
+        var safeTitle = string.Join("_", title.Split(System.IO.Path.GetInvalidFileNameChars()));
+
+        try
+        {
+            var content = new System.Text.StringBuilder();
+            content.AppendLine($"Story: {title}");
+            if (!string.IsNullOrEmpty(ConversationService.CurrentConversation.Summary))
+            {
+                content.AppendLine($"Summary: {ConversationService.CurrentConversation.Summary}");
+                content.AppendLine();
+            }
+
+            content.AppendLine("--------------------------------------------------");
+            content.AppendLine();
+
+            foreach (var msg in ConversationService.CurrentConversation.Messages)
+            {
+                if (msg.Role == "system") continue;
+                var roleName = msg.Role == "user" ? "You" : "AI";
+                content.AppendLine($"{roleName}:");
+                content.AppendLine(msg.Content);
+                content.AppendLine("--------------------------------------------------");
+                content.AppendLine();
+            }
+
+            string? targetFilePath = null;
+
+            // WPF UI Dialogs require STA thread, we dispatch to Application's main thread
+            await System.Windows.Application.Current.Dispatcher.InvokeAsync(() =>
+            {
+                var dialog = new Microsoft.Win32.SaveFileDialog
+                {
+                    FileName = $"{safeTitle}.txt",
+                    DefaultExt = ".txt",
+                    Filter = "Text documents (.txt)|*.txt"
+                };
+
+                if (dialog.ShowDialog() == true)
+                {
+                    targetFilePath = dialog.FileName;
+                }
+            });
+
+            if (!string.IsNullOrEmpty(targetFilePath))
+            {
+                await System.IO.File.WriteAllTextAsync(targetFilePath, content.ToString());
+                //await JS.InvokeVoidAsync("alert", $"成功导出到: {targetFilePath}");
+                Toast.ShowToast($"已导出到: {targetFilePath}");
+            }
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "ExportConversation");
+            //try { await JS.InvokeVoidAsync("alert", $"导出失败: {ex.Message}"); } catch {}
+            try
+            {
+                Toast.ShowToast($"导出失败: {ex.Message}");
+            }
+            catch
+            {
+            }
+        }
+    }
+
     private bool IsActionMenuOpen = false;
     private string SelectedAction = "🎭 Actions";
-    
+
     private bool IsSuggestionMenuOpen = false;
     private bool IsLoadingSuggestions = false;
     private List<string> Suggestions = new List<string>();
@@ -318,7 +389,7 @@
     private void ToggleActionMenu()
     {
         IsActionMenuOpen = !IsActionMenuOpen;
-        IsSuggestionMenuOpen = false; 
+        IsSuggestionMenuOpen = false;
     }
 
     private void SelectAction(string action)
@@ -339,14 +410,14 @@
     {
         IsSuggestionMenuOpen = !IsSuggestionMenuOpen;
         IsActionMenuOpen = false;
-        
+
         if (IsSuggestionMenuOpen)
         {
             // If we have cached suggestions, just show them.
             // Unless the list is empty, then fetch.
             if (Suggestions == null || !Suggestions.Any())
             {
-               await GetSuggestions();
+                await GetSuggestions();
             }
         }
     }
@@ -359,11 +430,11 @@
 
         var context = ConversationService.GetHistoryForLlm();
         Suggestions = await LlmService.GetSuggestionsAsync(context, GetEffectiveAction());
-        
+
         IsLoadingSuggestions = false;
         StateHasChanged();
     }
-    
+
     private async Task RegenerateSuggestions()
     {
         // Force refresh
@@ -380,27 +451,35 @@
     {
         if (!string.IsNullOrEmpty(UserPrompt))
         {
-             // Add a space if the prompt doesn't end with whitespace
-             if (UserPrompt.Length > 0 && !char.IsWhiteSpace(UserPrompt.Last()))
-             {
-                 UserPrompt += " ";
-             }
-             UserPrompt += text;
+            // Add a space if the prompt doesn't end with whitespace
+            if (UserPrompt.Length > 0 && !char.IsWhiteSpace(UserPrompt.Last()))
+            {
+                UserPrompt += " ";
+            }
+
+            UserPrompt += text;
         }
         else
         {
             UserPrompt = text;
         }
+
         IsSuggestionMenuOpen = false;
     }
 
-    private async void ScrollToBottom()
+    private void ScrollToBottom()
     {
         // Simple JS interop to scroll
-        try {
-            await JS.InvokeVoidAsync("scrollToBottom", "chat-scroll-target");
-        } catch { /* ignore if JS not ready */ }
+        try
+        {
+            Toast.ShowToast("scrollToBottom:chat-scroll-target");
+        }
+        catch
+        {
+            /* ignore if JS not ready */
+        }
     }
+
 }
 
 <script>
@@ -450,6 +529,7 @@
         width: 300px;
         transition: border 0.3s;
     }
+
     .title-input:focus {
         border: 1px solid #007acc;
         outline: none;
@@ -465,7 +545,11 @@
         border-radius: 4px;
         font-size: 1.1em;
     }
-    .header-actions .btn-icon:hover { background-color: #3e3e42; color: #fff; }
+
+    .header-actions .btn-icon:hover {
+        background-color: #3e3e42;
+        color: #fff;
+    }
 
     /* Chat Area */
     .chat-area {
@@ -486,12 +570,30 @@
         font-size: 0.9em;
         opacity: 0.8;
     }
-    .summary-label { font-weight: bold; color: #007acc; margin-bottom: 4px; }
-    .summary-text { font-style: italic; color: #aaa; }
 
-    .message-row { display: flex; width: 100%; }
-    .user-row { justify-content: flex-end; }
-    .ai-row { justify-content: flex-start; }
+    .summary-label {
+        font-weight: bold;
+        color: #007acc;
+        margin-bottom: 4px;
+    }
+
+    .summary-text {
+        font-style: italic;
+        color: #aaa;
+    }
+
+    .message-row {
+        display: flex;
+        width: 100%;
+    }
+
+    .user-row {
+        justify-content: flex-end;
+    }
+
+    .ai-row {
+        justify-content: flex-start;
+    }
 
     .message-bubble {
         max-width: 75%;
@@ -499,7 +601,7 @@
         border-radius: 8px;
         position: relative;
         line-height: 1.5;
-        box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+        box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2);
     }
 
     .user-row .message-bubble {
@@ -523,7 +625,9 @@
         text-transform: uppercase;
     }
 
-    .message-content { white-space: pre-wrap; }
+    .message-content {
+        white-space: pre-wrap;
+    }
 
     /* Input Area */
     .input-area {
@@ -550,10 +654,20 @@
         cursor: pointer;
         transition: all 0.2s;
     }
-    .btn-tool:hover { background-color: #444; color: #fff; }
 
-    .spacer { flex: 1; }
-    .status-text { color: #888; font-size: 0.85em; }
+    .btn-tool:hover {
+        background-color: #444;
+        color: #fff;
+    }
+
+    .spacer {
+        flex: 1;
+    }
+
+    .status-text {
+        color: #888;
+        font-size: 0.85em;
+    }
 
     .input-row {
         display: flex;
@@ -578,7 +692,11 @@
         height: 70px; /* Base height */
         font-family: inherit;
     }
-    textarea:focus { border-color: #007acc; outline: none; }
+
+    textarea:focus {
+        border-color: #007acc;
+        outline: none;
+    }
 
     .btn-enhance {
         background-color: #4a4a4a;
@@ -591,8 +709,16 @@
         transition: background 0.2s;
         font-size: 0.85em;
     }
-    .btn-enhance:hover { background-color: #5c5c5c; }
-    .btn-enhance:disabled { background-color: #333; color: #888; cursor: not-allowed; }
+
+    .btn-enhance:hover {
+        background-color: #5c5c5c;
+    }
+
+    .btn-enhance:disabled {
+        background-color: #333;
+        color: #888;
+        cursor: not-allowed;
+    }
 
     .btn-send {
         background-color: #007acc;
@@ -606,8 +732,16 @@
         cursor: pointer;
         transition: background 0.2s;
     }
-    .btn-send:hover { background-color: #0062a3; }
-    .btn-send:disabled { background-color: #333; color: #888; cursor: not-allowed; }
+
+    .btn-send:hover {
+        background-color: #0062a3;
+    }
+
+    .btn-send:disabled {
+        background-color: #333;
+        color: #888;
+        cursor: not-allowed;
+    }
 
     .cursor {
         display: inline-block;
@@ -617,7 +751,12 @@
         vertical-align: bottom;
         animation: blink 1s infinite;
     }
-    @@keyframes blink { 50% { opacity: 0; } }
+
+    @@keyframes blink {
+        50% {
+            opacity: 0;
+        }
+    }
 
     /* Dropdown Menus */
     .dropdown-menu {
@@ -626,7 +765,7 @@
         left: 0;
         background-color: #252526;
         border: 1px solid #3e3e42;
-        box-shadow: 0 4px 10px rgba(0,0,0,0.5);
+        box-shadow: 0 4px 10px rgba(0, 0, 0, 0.5);
         border-radius: 4px;
         padding: 5px;
         display: flex;
@@ -649,23 +788,27 @@
         font-size: 0.95em;
         transition: background-color 0.2s;
     }
+
     .dropdown-menu button:hover {
         background-color: #007acc;
         color: white;
     }
-    
+
     .suggestions-menu {
         width: 400px;
         max-height: 300px;
         overflow-y: auto;
     }
-    
+
     .suggestion-item {
         border-bottom: 1px solid #333;
         line-height: 1.4;
     }
-    .suggestion-item:last-child { border-bottom: none; }
-    
+
+    .suggestion-item:last-child {
+        border-bottom: none;
+    }
+
     .menu-item-text {
         padding: 8px 12px;
         color: #888;
@@ -709,6 +852,7 @@
         line-height: 1;
         transition: background-color 0.2s;
     }
+
     .btn-icon-small:hover {
         background-color: #3e3e42;
         color: #fff;
