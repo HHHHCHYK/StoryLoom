@@ -169,6 +169,37 @@ namespace StoryLoom.Services
             _ = SaveCurrentStateAsync();
         }
 
+        public async Task DeleteSaveAsync(string saveName)
+        {
+            try
+            {
+                if (string.IsNullOrWhiteSpace(saveName)) return;
+                
+                // Prevent deleting the currently active save
+                if (saveName == CurrentSaveName)
+                {
+                    _logger.Log($"Attempted to delete the active save: {saveName}. Aborted.", LogLevel.Warning);
+                    return;
+                }
+
+                string savePath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, SavesDirectory, saveName);
+                if (Directory.Exists(savePath))
+                {
+                    // True enables recursive deletion of all contents
+                    Directory.Delete(savePath, true);
+                    _logger.Log($"Successfully deleted save: {saveName}");
+                }
+                else
+                {
+                    _logger.Log($"Save directory not found for deletion: {savePath}", LogLevel.Warning);
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, $"Failed to delete save: {saveName}");
+            }
+        }
+
         public List<ChatMessage> GetHistoryForLlm()
         {
             _logger.Log($"[{nameof(ConversationService)}] {nameof(GetHistoryForLlm)} called.");

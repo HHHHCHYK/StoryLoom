@@ -28,10 +28,19 @@
             {
                 <div class="save-card @(save.SaveName == ConversationService.CurrentSaveName ? "active" : "")" @onclick="() => LoadSave(save.SaveName)">
                     <div class="card-header">
-                        <span class="save-title">@save.Title</span>
-                        @if (save.SaveName == ConversationService.CurrentSaveName)
+                        <div class="title-container">
+                            <span class="save-title" title="@save.Title">@save.Title</span>
+                            @if (save.SaveName == ConversationService.CurrentSaveName)
+                            {
+                                <span class="active-badge">当前</span>
+                            }
+                        </div>
+                        
+                        @if (save.SaveName != ConversationService.CurrentSaveName)
                         {
-                            <span class="active-badge">当前</span>
+                            <button class="delete-save-btn" title="删除存档 (Delete)" @onclick="() => DeleteSave(save.SaveName)" @onclick:stopPropagation="true">
+                                删除存档
+                            </button>
                         }
                     </div>
                     <div class="save-time">@save.CreatedAt.ToString("yyyy-MM-dd HH:mm:ss")</div>
@@ -84,6 +93,13 @@
     {
         await ConversationService.StartNewConversationAsync();
         Nav.NavigateTo("world-building");
+    }
+
+    private async Task DeleteSave(string saveName)
+    {
+        // Add a slight confirmation (optional, currently direct delete)
+        await ConversationService.DeleteSaveAsync(saveName);
+        await LoadSaveList(); // Refresh the grid
     }
 }
 
@@ -165,8 +181,15 @@
     .card-header {
         display: flex;
         justify-content: space-between;
-        align-items: center;
+        align-items: flex-start;
         margin-bottom: 5px;
+    }
+
+    .title-container {
+        display: flex;
+        align-items: center;
+        flex: 1;
+        overflow: hidden;
     }
 
     .save-title {
@@ -176,7 +199,6 @@
         white-space: nowrap;
         overflow: hidden;
         text-overflow: ellipsis;
-        flex: 1;
     }
 
     .active-badge {
@@ -204,5 +226,24 @@
         -webkit-line-clamp: 4;
         -webkit-box-orient: vertical;
         line-height: 1.4;
+    }
+
+    .delete-save-btn {
+        background: none;
+        border: none;
+        color: #f44336;
+        cursor: pointer;
+        padding: 4px;
+        margin-left: 8px;
+        border-radius: 4px;
+        font-size: 14px;
+        opacity: 0.7;
+        transition: all 0.2s ease;
+    }
+
+    .delete-save-btn:hover {
+        opacity: 1;
+        background-color: rgba(244, 67, 54, 0.1);
+        transform: scale(1.1);
     }
 </style>
