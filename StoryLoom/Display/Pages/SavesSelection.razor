@@ -5,21 +5,29 @@
 @inject NavigationManager Nav
 @inject LogService Logger
 
-<div class="saves-container">
-    <div class="header">
-        <h2>💾 存档选择 (Saves)</h2>
-        <button class="new-story-btn" @onclick="CreateNewStory">
-            ➕ 新故事 (New Story)
-        </button>
+<div class="page-shell saves-page">
+    <div class="page-header">
+        <div class="page-title-group">
+            <span class="page-eyebrow">Library</span>
+            <h1 class="page-title">存档选择</h1>
+            <p class="page-subtitle">选择已有故事继续写作，或从空白世界开始新的叙事。</p>
+        </div>
+        <button class="button" @onclick="CreateNewStory">新故事</button>
     </div>
 
     @if (isLoading)
     {
-        <div class="loading">加载中... (Loading...)</div>
+        <div class="empty-state surface">
+            <div class="empty-title">正在加载存档</div>
+            <div class="empty-copy">请稍候，正在整理你的故事记录。</div>
+        </div>
     }
     else if (Saves == null || !Saves.Any())
     {
-        <div class="no-saves">暂无存档。点击右上角开始新故事！</div>
+        <div class="empty-state surface">
+            <div class="empty-title">还没有存档</div>
+            <div class="empty-copy">点击右上角的“新故事”，开始创建第一个世界。</div>
+        </div>
     }
     else
     {
@@ -38,14 +46,14 @@
                         
                         @if (save.SaveName != ConversationService.CurrentSaveName)
                         {
-                            <button class="delete-save-btn" title="删除存档 (Delete)" @onclick="() => DeleteSave(save.SaveName)" @onclick:stopPropagation="true">
+                            <button class="delete-save-btn" title="删除存档" @onclick="() => DeleteSave(save.SaveName)" @onclick:stopPropagation="true">
                                 删除存档
                             </button>
                         }
                     </div>
-                    <div class="save-time">@save.CreatedAt.ToString("yyyy-MM-dd HH:mm:ss")</div>
+                    <div class="save-time">@save.CreatedAt.ToString("yyyy-MM-dd HH:mm")</div>
                     <div class="save-summary">
-                        @(string.IsNullOrWhiteSpace(save.Summary) ? "暂无摘要 (No summary)" : save.Summary)
+                        @(string.IsNullOrWhiteSpace(save.Summary) ? "暂无摘要" : save.Summary)
                     </div>
                 </div>
             }
@@ -104,146 +112,147 @@
 }
 
 <style>
-    .saves-container {
-        padding: 20px;
+    .saves-page {
         height: 100%;
-        display: flex;
-        flex-direction: column;
-        color: #d4d4d4;
     }
 
-    .header {
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-        margin-bottom: 20px;
-        border-bottom: 1px solid #3e3e42;
-        padding-bottom: 10px;
-    }
-
-    h2 {
-        margin: 0;
-        color: #dcdcaa;
-        font-size: 20px;
-    }
-
-    .new-story-btn {
-        background-color: #094771;
-        color: white;
-        border: none;
-        padding: 8px 16px;
-        border-radius: 4px;
-        cursor: pointer;
-        font-weight: bold;
-    }
-
-    .new-story-btn:hover {
-        background-color: #1177bb;
-    }
-
-    .loading, .no-saves {
+    .empty-state {
+        min-height: 220px;
+        display: grid;
+        place-items: center;
         text-align: center;
-        margin-top: 50px;
-        color: #888;
-        font-size: 16px;
+        padding: 32px;
+    }
+
+    .empty-title {
+        font-size: 20px;
+        font-weight: 600;
+        letter-spacing: -0.02em;
+    }
+
+    .empty-copy {
+        margin-top: 8px;
+        max-width: 420px;
+        color: var(--text-muted);
+        line-height: 1.6;
     }
 
     .saves-grid {
         display: grid;
-        grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
-        gap: 20px;
+        grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+        gap: 18px;
         overflow-y: auto;
-        padding-right: 10px;
+        padding-right: 4px;
     }
 
     .save-card {
-        background-color: #252526;
-        border: 1px solid #3e3e42;
-        border-radius: 8px;
-        padding: 15px;
+        background: #0e0e0e;
+        border: 1px solid #202020;
+        border-radius: 18px;
+        padding: 18px;
         cursor: pointer;
-        transition: transform 0.2s, box-shadow 0.2s, border-color 0.2s;
+        transition: border-color 120ms ease, background-color 120ms ease, transform 120ms ease;
         display: flex;
         flex-direction: column;
-        height: 150px;
+        min-height: 184px;
     }
 
     .save-card:hover {
-        transform: translateY(-2px);
-        box-shadow: 0 4px 8px rgba(0,0,0,0.3);
-        border-color: #094771;
+        background: #131313;
+        border-color: #3b3b3b;
+        transform: translateY(-1px);
     }
 
     .save-card.active {
-        border-color: #4CAF50;
+        background: #ffffff;
+        border-color: #ffffff;
+        color: #000000;
     }
 
     .card-header {
         display: flex;
         justify-content: space-between;
         align-items: flex-start;
-        margin-bottom: 5px;
+        gap: 12px;
+        margin-bottom: 10px;
     }
 
     .title-container {
         display: flex;
         align-items: center;
+        gap: 10px;
         flex: 1;
         overflow: hidden;
     }
 
     .save-title {
-        font-weight: bold;
-        font-size: 16px;
-        color: #9cdcfe;
-        white-space: nowrap;
+        font-weight: 700;
+        font-size: 18px;
+        letter-spacing: -0.02em;
+        line-height: 1.25;
+        display: -webkit-box;
         overflow: hidden;
         text-overflow: ellipsis;
+        -webkit-line-clamp: 2;
+        -webkit-box-orient: vertical;
     }
 
     .active-badge {
-        background-color: #4CAF50;
-        color: white;
-        font-size: 10px;
-        padding: 2px 6px;
-        border-radius: 10px;
-        margin-left: 10px;
+        border: 1px solid rgba(0, 0, 0, 0.16);
+        color: #000000;
+        background: rgba(0, 0, 0, 0.06);
+        font-size: 11px;
+        padding: 4px 10px;
+        border-radius: 999px;
         white-space: nowrap;
     }
 
     .save-time {
         font-size: 12px;
-        color: #888;
-        margin-bottom: 10px;
+        color: #7f7f7f;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+        margin-bottom: 14px;
     }
 
     .save-summary {
-        font-size: 13px;
-        color: #d4d4d4;
+        font-size: 14px;
+        color: #b6b6b6;
         overflow: hidden;
         text-overflow: ellipsis;
         display: -webkit-box;
-        -webkit-line-clamp: 4;
+        -webkit-line-clamp: 5;
         -webkit-box-orient: vertical;
-        line-height: 1.4;
+        line-height: 1.65;
+        margin-top: auto;
+    }
+
+    .save-card.active .save-time,
+    .save-card.active .save-summary {
+        color: rgba(0, 0, 0, 0.68);
     }
 
     .delete-save-btn {
-        background: none;
-        border: none;
-        color: #f44336;
+        min-height: 34px;
+        border-radius: 999px;
+        border: 1px solid rgba(255, 90, 90, 0.28);
+        background: transparent;
+        color: #ff7b7b;
         cursor: pointer;
-        padding: 4px;
-        margin-left: 8px;
-        border-radius: 4px;
-        font-size: 14px;
-        opacity: 0.7;
-        transition: all 0.2s ease;
+        padding: 0 12px;
+        font-size: 12px;
+        transition: background-color 120ms ease, border-color 120ms ease, color 120ms ease;
     }
 
     .delete-save-btn:hover {
-        opacity: 1;
-        background-color: rgba(244, 67, 54, 0.1);
-        transform: scale(1.1);
+        background-color: rgba(255, 90, 90, 0.08);
+        border-color: rgba(255, 90, 90, 0.52);
+        color: #ff9d9d;
+    }
+
+    @@media (max-width: 820px) {
+        .saves-grid {
+            grid-template-columns: 1fr;
+        }
     }
 </style>

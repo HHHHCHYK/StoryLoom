@@ -1,18 +1,21 @@
 <div class="nav-menu @(Collapsed ? "collapsed" : "")">
     <div class="nav-header">
-        @if (!Collapsed)
-        {
-            <span class="nav-title">StoryLoom</span>
-        }
-        <button class="collapse-btn" @onclick="ToggleCollapse">
-            @(Collapsed ? "☰" : "⬅")
+        <div class="brand-block">
+            @if (!Collapsed)
+            {
+                <span class="nav-title">StoryLoom</span>
+                <span class="nav-subtitle">创作工作台</span>
+            }
+        </div>
+        <button class="collapse-btn" @onclick="ToggleCollapse" aria-label="Toggle navigation width">
+            @(Collapsed ? ">" : "<")
         </button>
     </div>
 
-    <nav class="flex-column">
-        <div class="nav-item px-3">
+    <nav class="nav-links">
+        <div class="nav-item">
             <NavLink class="nav-link" href="saves" Match="NavLinkMatch.All">
-                <span class="icon">💾</span>
+                <span class="icon">01</span>
                 @if (!Collapsed)
                 {
                     <span class="text">存档选择</span>
@@ -20,9 +23,9 @@
             </NavLink>
         </div>
         
-        <div class="nav-item px-3">
+        <div class="nav-item">
             <NavLink class="nav-link" href="story-generator">
-                <span class="icon">🚀</span>
+                <span class="icon">02</span>
                 @if (!Collapsed)
                 {
                     <span class="text">故事构建</span>
@@ -30,9 +33,9 @@
             </NavLink>
         </div>
 
-        <div class="nav-item px-3">
+        <div class="nav-item">
             <NavLink class="nav-link" href="world-building">
-                <span class="icon">🗺️</span>
+                <span class="icon">03</span>
                 @if (!Collapsed)
                 {
                     <span class="text">世界构建</span>
@@ -40,9 +43,9 @@
             </NavLink>
         </div>
 
-        <div class="nav-item px-3">
+        <div class="nav-item">
             <NavLink class="nav-link" href="settings">
-                <span class="icon">⚙️</span>
+                <span class="icon">04</span>
                 @if (!Collapsed)
                 {
                     <span class="text">模型设置</span>
@@ -68,83 +71,139 @@
 
 <style>
     .nav-menu {
-        background-color: #252526;
+        background: #050505;
         height: 100vh;
         display: flex;
         flex-direction: column;
-        border-right: 1px solid #3e3e42;
-        transition: width 0.3s ease;
-        width: 250px;
+        transition: width 160ms ease;
+        width: 232px;
         overflow: hidden;
+        padding: 20px 14px 18px;
     }
 
     .nav-menu.collapsed {
-        width: 60px;
+        width: 84px;
     }
 
     .nav-header {
         display: flex;
         align-items: center;
         justify-content: space-between;
-        padding: 10px 15px;
-        height: 50px;
-        background-color: #1e1e1e;
-        border-bottom: 1px solid #3e3e42;
+        gap: 12px;
+        min-height: 56px;
+        padding: 0 4px 20px;
+        border-bottom: 1px solid #161616;
+        margin-bottom: 16px;
+    }
+
+    .brand-block {
+        min-width: 0;
+        display: flex;
+        flex-direction: column;
+        gap: 4px;
+        overflow: hidden;
     }
 
     .nav-title {
-        color: #d4d4d4;
-        font-weight: bold;
+        color: #f5f5f5;
+        font-size: 18px;
+        font-weight: 700;
+        letter-spacing: -0.03em;
         white-space: nowrap;
-        overflow: hidden;
+    }
+
+    .nav-subtitle {
+        color: #707070;
+        font-size: 11px;
+        letter-spacing: 0.16em;
+        text-transform: uppercase;
+        white-space: nowrap;
     }
 
     .collapse-btn {
-        background: none;
-        border: none;
-        color: #d4d4d4;
+        width: 34px;
+        height: 34px;
+        border-radius: 999px;
+        background: #0d0d0d;
+        border: 1px solid #262626;
+        color: #cfcfcf;
         cursor: pointer;
-        padding: 5px;
-        font-size: 16px;
+        font-size: 12px;
+        transition: background-color 120ms ease, border-color 120ms ease, color 120ms ease;
     }
     
     .collapse-btn:hover {
+        background: #151515;
         color: #ffffff;
+        border-color: #4a4a4a;
     }
 
-    .nav-item {
-        margin-top: 10px;
+    .nav-links {
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
     }
 
     .nav-link {
-        color: #d4d4d4;
+        color: #a6a6a6;
         text-decoration: none;
         display: flex;
         align-items: center;
-        padding: 10px;
-        border-radius: 4px;
+        gap: 12px;
+        min-height: 46px;
+        padding: 0 12px;
+        border-radius: 14px;
+        border: 1px solid transparent;
+        background: transparent;
         white-space: nowrap;
         overflow: hidden;
+        transition: background-color 120ms ease, border-color 120ms ease, color 120ms ease;
     }
 
     .nav-link:hover {
-        background-color: #37373d;
+        background-color: #0f0f0f;
+        border-color: #232323;
         color: #ffffff;
     }
 
     .nav-link.active {
-        background-color: #094771;
-        color: #ffffff;
+        background-color: #ffffff;
+        border-color: #ffffff;
+        color: #000000;
+        font-weight: 600;
     }
 
-    .nav-link .icon {
-        margin-right: 10px;
-        min-width: 20px;
-        display: inline-block;
+    .icon {
+        min-width: 26px;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
         text-align: center;
+        font-size: 11px;
+        letter-spacing: 0.08em;
+        font-weight: 700;
+        color: #707070;
     }
 
-    .collapsed .nav-link .icon {
-        margin-right: 0;
+    .nav-link.active .icon {
+        color: #000000;
+    }
+
+    .text {
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+
+    .collapsed .nav-header {
+        justify-content: center;
+    }
+
+    .collapsed .nav-link {
+        justify-content: center;
+        padding: 0;
+    }
+
+    .collapsed .icon {
+        min-width: auto;
     }
 </style>

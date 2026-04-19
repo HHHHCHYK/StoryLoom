@@ -33,8 +33,9 @@ namespace StoryLoom.Services
 
         public async Task AddUserMessageAsync(string content)
         {
-            _logger.Log($"[{nameof(ConversationService)}] {nameof(AddUserMessageAsync)} called. Message length: {content?.Length ?? 0}");
-            CurrentConversation.Messages.Add(new ChatMessage { Role = "user", Content = content });
+            var safeContent = content ?? string.Empty;
+            _logger.Log($"[{nameof(ConversationService)}] {nameof(AddUserMessageAsync)} called. Message length: {safeContent.Length}");
+            CurrentConversation.Messages.Add(new ChatMessage { Role = "user", Content = safeContent });
             NotifyUpdate();
             await SaveCurrentStateAsync();
             await CheckAndSummarizeAsync();
@@ -42,8 +43,9 @@ namespace StoryLoom.Services
 
         public async Task AddAiMessageAsync(string content)
         {
-            _logger.Log($"[{nameof(ConversationService)}] {nameof(AddAiMessageAsync)} called. Message length: {content?.Length ?? 0}");
-            CurrentConversation.Messages.Add(new ChatMessage { Role = "assistant", Content = content });
+            var safeContent = content ?? string.Empty;
+            _logger.Log($"[{nameof(ConversationService)}] {nameof(AddAiMessageAsync)} called. Message length: {safeContent.Length}");
+            CurrentConversation.Messages.Add(new ChatMessage { Role = "assistant", Content = safeContent });
             NotifyUpdate();
             await SaveCurrentStateAsync();
             await CheckAndSummarizeAsync();

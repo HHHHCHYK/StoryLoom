@@ -6,46 +6,60 @@
 @inject NavigationManager Nav
 @inject LogService Logger
 
-<div class="world-building">
-    <h2>🗺️ 世界构建 (World Building)</h2>
+<div class="page-shell world-building">
+    <div class="page-header">
+        <div class="page-title-group">
+            <span class="page-eyebrow">World</span>
+            <h1 class="page-title">世界构建</h1>
+            <p class="page-subtitle">先定义世界背景与主角，再补充角色、势力、物品和场景。</p>
+        </div>
+        @if (IsEnhancing)
+        {
+            <span class="status-pill">AI 正在整理设定</span>
+        }
+    </div>
     
     @if (!Settings.IsModelConfigured)
     {
         <div class="alert-warning">
-            ⚠️ 尚未配置模型信息。请前往 <a href="settings">设置页面</a> 配置 API Key。
+            尚未配置模型信息。请前往 <a href="settings">设置页面</a> 配置 API Key。
         </div>
     }
 
     <div class="split-container">
-        <!-- Background Section -->
-        <div class="section-box">
-            <h3>背景设定 (Background)</h3>
-            <textarea @bind="Settings.Background" @onfocusout="SaveWorldSettings" disabled="@IsBackgroundLocked" rows="10" placeholder="描述你的故事世界观..."></textarea>
+        <div class="section-box surface">
+            <div class="section-title-row">
+                <h3>背景设定</h3>
+                <span class="section-note">世界观、规则、时代、冲突</span>
+            </div>
+            <textarea class="field-area section-textarea" @bind="Settings.Background" @onfocusout="SaveWorldSettings" disabled="@IsBackgroundLocked" rows="10" placeholder="描述你的故事世界观..."></textarea>
             <div class="controls">
-                <button class="icon-btn" @onclick="() => IsBackgroundLocked = !IsBackgroundLocked" title="Lock/Unlock">
-                    @(IsBackgroundLocked ? "🔒" : "🔓")
+                <button class="button-ghost icon-btn" @onclick="() => IsBackgroundLocked = !IsBackgroundLocked" title="Lock/Unlock">
+                    @(IsBackgroundLocked ? "已锁定" : "可编辑")
                 </button>
                 <div class="right-controls">
-                     <button class="icon-btn" @onclick="UndoBackground" title="Undo">↩️</button>
-                     <button class="ai-btn" @onclick="EnhanceBackground" disabled="@(IsBackgroundLocked || IsEnhancing)">
-                        ✨ AI 完善
+                     <button class="button-ghost icon-btn" @onclick="UndoBackground" title="Undo">撤销</button>
+                     <button class="button ai-btn" @onclick="EnhanceBackground" disabled="@(IsBackgroundLocked || IsEnhancing)">
+                        AI 完善
                      </button>
                 </div>
             </div>
         </div>
 
-        <!-- Protagonist Section -->
-        <div class="section-box">
-            <h3>主角设定 (Protagonist)</h3>
-            <textarea @bind="Settings.Protagonist" @onfocusout="SaveWorldSettings" disabled="@IsProtagonistLocked" rows="10" placeholder="描述主角的性格、外貌..."></textarea>
+        <div class="section-box surface">
+            <div class="section-title-row">
+                <h3>主角设定</h3>
+                <span class="section-note">动机、个性、经历、目标</span>
+            </div>
+            <textarea class="field-area section-textarea" @bind="Settings.Protagonist" @onfocusout="SaveWorldSettings" disabled="@IsProtagonistLocked" rows="10" placeholder="描述主角的性格、外貌..."></textarea>
             <div class="controls">
-                <button class="icon-btn" @onclick="() => IsProtagonistLocked = !IsProtagonistLocked" title="Lock/Unlock">
-                    @(IsProtagonistLocked ? "🔒" : "🔓")
+                <button class="button-ghost icon-btn" @onclick="() => IsProtagonistLocked = !IsProtagonistLocked" title="Lock/Unlock">
+                    @(IsProtagonistLocked ? "已锁定" : "可编辑")
                 </button>
                  <div class="right-controls">
-                     <button class="icon-btn" @onclick="UndoProtagonist" title="Undo">↩️</button>
-                     <button class="ai-btn" @onclick="EnhanceProtagonist" disabled="@(IsProtagonistLocked || IsEnhancing)">
-                        ✨ AI 完善
+                     <button class="button-ghost icon-btn" @onclick="UndoProtagonist" title="Undo">撤销</button>
+                     <button class="button ai-btn" @onclick="EnhanceProtagonist" disabled="@(IsProtagonistLocked || IsEnhancing)">
+                        AI 完善
                      </button>
                 </div>
             </div>
@@ -59,20 +73,21 @@
         </div>
     }
 
-    <hr class="sub-divider" />
-    
     <div class="cards-section">
-        <h3>🌌 实体管理 (Entities)</h3>
+        <div class="section-title-row">
+            <h3>实体管理</h3>
+            <span class="section-note">保持实体名称清晰，摘要短而准。</span>
+        </div>
         
-        <div class="entity-category">
+        <div class="entity-category surface">
             <div class="category-header">
-                <h4>👤 角色 (Characters)</h4>
-                <button class="btn-add" @onclick="() => OpenModal(new Character(), EntityType.Character)">➕ 新增角色</button>
+                <h4>角色</h4>
+                <button class="button-ghost btn-add" @onclick="() => OpenModal(new Character(), EntityType.Character)">新增角色</button>
             </div>
             <div class="cards-grid">
                 @foreach (var c in Settings.Characters)
                 {
-                    <div class="entity-card card-character" @onclick="() => OpenModal(c, EntityType.Character)">
+                    <div class="entity-card" @onclick="() => OpenModal(c, EntityType.Character)">
                         <div class="card-name">@(string.IsNullOrWhiteSpace(c.Name) ? "未命名角色" : c.Name)</div>
                         <div class="card-summary">@(string.IsNullOrWhiteSpace(c.Summary) ? "暂无简介" : c.Summary)</div>
                     </div>
@@ -80,15 +95,15 @@
             </div>
         </div>
 
-        <div class="entity-category">
+        <div class="entity-category surface">
             <div class="category-header">
-                <h4>🚩 势力 (Factions)</h4>
-                <button class="btn-add" @onclick="() => OpenModal(new Faction(), EntityType.Faction)">➕ 新增势力</button>
+                <h4>势力</h4>
+                <button class="button-ghost btn-add" @onclick="() => OpenModal(new Faction(), EntityType.Faction)">新增势力</button>
             </div>
             <div class="cards-grid">
                 @foreach (var f in Settings.Factions)
                 {
-                    <div class="entity-card card-faction" @onclick="() => OpenModal(f, EntityType.Faction)">
+                    <div class="entity-card" @onclick="() => OpenModal(f, EntityType.Faction)">
                         <div class="card-name">@(string.IsNullOrWhiteSpace(f.Name) ? "未命名势力" : f.Name)</div>
                         <div class="card-summary">@(string.IsNullOrWhiteSpace(f.Summary) ? "暂无简介" : f.Summary)</div>
                     </div>
@@ -96,15 +111,15 @@
             </div>
         </div>
 
-        <div class="entity-category">
+        <div class="entity-category surface">
             <div class="category-header">
-                <h4>📦 物品 (Items)</h4>
-                <button class="btn-add" @onclick="() => OpenModal(new Item(), EntityType.Item)">➕ 新增物品</button>
+                <h4>物品</h4>
+                <button class="button-ghost btn-add" @onclick="() => OpenModal(new Item(), EntityType.Item)">新增物品</button>
             </div>
             <div class="cards-grid">
                 @foreach (var i in Settings.Items)
                 {
-                    <div class="entity-card card-item" @onclick="() => OpenModal(i, EntityType.Item)">
+                    <div class="entity-card" @onclick="() => OpenModal(i, EntityType.Item)">
                         <div class="card-name">@(string.IsNullOrWhiteSpace(i.Name) ? "未命名物品" : i.Name)</div>
                         <div class="card-summary">@(string.IsNullOrWhiteSpace(i.Summary) ? "暂无简介" : i.Summary)</div>
                     </div>
@@ -112,15 +127,15 @@
             </div>
         </div>
 
-        <div class="entity-category">
+        <div class="entity-category surface">
             <div class="category-header">
-                <h4>🎬 设定/场景 (Scenes)</h4>
-                <button class="btn-add" @onclick="() => OpenModal(new Scene(), EntityType.Scene)">➕ 新增场景</button>
+                <h4>场景</h4>
+                <button class="button-ghost btn-add" @onclick="() => OpenModal(new Scene(), EntityType.Scene)">新增场景</button>
             </div>
             <div class="cards-grid">
                 @foreach (var s in Settings.Scenes)
                 {
-                    <div class="entity-card card-scene" @onclick="() => OpenModal(s, EntityType.Scene)">
+                    <div class="entity-card" @onclick="() => OpenModal(s, EntityType.Scene)">
                         <div class="card-name">@(string.IsNullOrWhiteSpace(s.Name) ? "未命名场景" : s.Name)</div>
                         <div class="card-summary">@(string.IsNullOrWhiteSpace(s.Summary) ? "暂无简介" : s.Summary)</div>
                     </div>
@@ -135,36 +150,36 @@
             <div class="modal-content" @onclick:stopPropagation>
                 <div class="modal-header">
                     <h3>编辑 @GetEntityTypeName(ActiveEntityType)</h3>
-                    <button class="close-btn" @onclick="CloseModal">✕</button>
+                    <button class="close-btn" @onclick="CloseModal">关闭</button>
                 </div>
                 <div class="modal-body">
                     <div class="form-group">
-                        <label>名称 (Name)</label>
-                        <input type="text" @bind="ActiveEntityName" />
+                        <label>名称</label>
+                        <input class="field" type="text" @bind="ActiveEntityName" />
                     </div>
                     <div class="form-group">
-                        <label>简介 (Summary)</label>
-                        <textarea rows="3" @bind="ActiveEntitySummary"></textarea>
+                        <label>简介</label>
+                        <textarea class="field-area" rows="3" @bind="ActiveEntitySummary"></textarea>
                     </div>
                     <div class="form-group">
-                        <label>详细描述 (Descriptions / Origins)</label>
+                        <label>详细描述</label>
                         @for (int i = 0; i < ActiveEntityDescriptions.Count; i++)
                         {
                             var index = i;
                             <div class="desc-row">
-                                <textarea rows="2" @bind="ActiveEntityDescriptions[index]"></textarea>
-                                <button class="btn-remove" @onclick="() => ActiveEntityDescriptions.RemoveAt(index)">🗑️</button>
+                                <textarea class="field-area" rows="2" @bind="ActiveEntityDescriptions[index]"></textarea>
+                                <button class="button-danger btn-remove" @onclick="() => ActiveEntityDescriptions.RemoveAt(index)">删除</button>
                             </div>
                         }
-                        <button class="btn-add-minor" @onclick="() => ActiveEntityDescriptions.Add(string.Empty)">➕ 添加描述属性</button>
+                        <button class="button-ghost btn-add-minor" @onclick="() => ActiveEntityDescriptions.Add(string.Empty)">添加描述属性</button>
                     </div>
                 </div>
                 <div class="modal-footer">
                     @if (!IsNewEntity)
                     {
-                        <button class="btn-delete" @onclick="DeleteEntity">删除 (Delete)</button>
+                        <button class="button-danger btn-delete" @onclick="DeleteEntity">删除</button>
                     }
-                    <button class="btn-save" @onclick="SaveEntity">保存 (Save)</button>
+                    <button class="button btn-save" @onclick="SaveEntity">保存</button>
                 </div>
             </div>
         </div>
@@ -360,11 +375,11 @@
 
     private string GetEntityTypeName(EntityType type) => type switch
     {
-        EntityType.Character => "角色 (Character)",
-        EntityType.Faction => "势力 (Faction)",
-        EntityType.Item => "物品 (Item)",
-        EntityType.Scene => "设定/场景 (Scene)",
-        _ => "Entity"
+        EntityType.Character => "角色",
+        EntityType.Faction => "势力",
+        EntityType.Item => "物品",
+        EntityType.Scene => "场景",
+        _ => "实体"
     };
 }
 
@@ -374,200 +389,154 @@
         display: flex;
         flex-direction: column;
         overflow-y: auto;
-        
-        scrollbar-width: none;
-        -ms-overflow-style: none;
-    }
-
-    .settings-page::-webkit-scrollbar {
-        display: none;
-    }
-
-    /* Layout */
-    .wb-container {
-        display: flex;
-        flex-direction: column;
-        height: 100%;
-        flex: 1;
-        background-color: #1e1e1e;
-        color: #d4d4d4;
-        padding: 10px;
-        border-radius: 4px;
-        margin-bottom: 20px;
     }
 
     .alert-warning {
-        background-color: #3e2723;
-        color: #ffcc80;
-        padding: 10px;
-        border-radius: 4px;
-        margin-bottom: 20px;
+        padding: 16px 18px;
+        border-radius: 16px;
+        border: 1px solid rgba(255, 255, 255, 0.12);
+        background: #0b0b0b;
+        color: #f0f0f0;
     }
     
-    .alert-warning a { color: #ffcc80; text-decoration: underline; }
+    .alert-warning a {
+        color: #ffffff;
+        text-decoration: underline;
+    }
 
     .split-container {
         display: flex;
-        gap: 20px;
+        gap: 18px;
     }
 
     .section-box {
         flex: 1;
         display: flex;
         flex-direction: column;
-        background-color: #252526;
-        border-radius: 6px;
-        padding: 15px;
+        padding: 20px;
     }
 
-    h3 { margin-top: 0; color: #dcdcaa; font-size: 16px; }
-
-    textarea {
-        flex: 1;
-        background-color: #1e1e1e;
-        color: #d4d4d4;
-        border: 1px solid #3e3e42;
-        padding: 10px;
-        border-radius: 4px;
-        resize: none;
-        font-family: inherit;
+    .section-textarea {
+        min-height: 240px;
     }
-    
-    textarea:disabled { opacity: 0.6; cursor: not-allowed; }
+
+    .section-box textarea:disabled {
+        opacity: 0.52;
+        cursor: not-allowed;
+    }
 
     .controls {
         display: flex;
         justify-content: space-between;
-        margin-top: 10px;
+        gap: 14px;
+        margin-top: 16px;
     }
 
-    .right-controls { display: flex; gap: 10px; }
-
-    .icon-btn, .ai-btn {
-        background-color: #3e3e42;
-        color: #d4d4d4;
-        border: none;
-        padding: 8px 12px;
-        border-radius: 4px;
-        cursor: pointer;
+    .right-controls {
+        display: flex;
+        gap: 10px;
     }
 
-    .icon-btn:hover, .ai-btn:hover { background-color: #505055; }
-
-    .ai-btn {
-        background-color: #4CAF50;
-        color: white;
+    .icon-btn,
+    .ai-btn,
+    .btn-add,
+    .btn-save,
+    .btn-delete,
+    .btn-add-minor,
+    .btn-remove {
+        min-height: 40px;
     }
-    .ai-btn:hover { background-color: #66bb6a; }
-    .ai-btn:disabled { background-color: #2e3e30; color: gray; cursor: default; }
 
     .loading-overlay {
         position: fixed;
         bottom: 20px;
         right: 20px;
-        background-color: #0e639c;
-        color: white;
+        background-color: rgba(8, 8, 8, 0.96);
+        color: #f5f5f5;
         padding: 10px 20px;
-        border-radius: 20px;
-        box-shadow: 0 4px 6px rgba(0,0,0,0.3);
+        border-radius: 999px;
+        border: 1px solid #262626;
+        box-shadow: 0 18px 48px rgba(0, 0, 0, 0.45);
         display: flex;
         align-items: center;
         gap: 10px;
     }
 
-    .sub-divider {
-        border: 0;
-        height: 1px;
-        background: #3e3e42;
-        margin: 20px 0;
-    }
-
     .cards-section {
-        margin-top: 20px;
+        display: flex;
+        flex-direction: column;
+        gap: 18px;
     }
 
     .entity-category {
-        margin-bottom: 25px;
+        padding: 20px;
     }
 
     .category-header {
         display: flex;
         justify-content: space-between;
         align-items: center;
-        margin-bottom: 10px;
-        border-bottom: 1px solid #333;
-        padding-bottom: 5px;
+        gap: 12px;
+        margin-bottom: 16px;
+        border-bottom: 1px solid #1d1d1d;
+        padding-bottom: 12px;
     }
 
     .category-header h4 {
         margin: 0;
-        color: #dcdcaa;
+        font-size: 16px;
+        font-weight: 600;
+        letter-spacing: -0.02em;
     }
-
-    .btn-add {
-        background-color: #094771;
-        color: white;
-        border: none;
-        padding: 4px 10px;
-        border-radius: 4px;
-        cursor: pointer;
-        font-size: 12px;
-    }
-
-    .btn-add:hover { background-color: #1177bb; }
 
     .cards-grid {
         display: grid;
-        grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
-        gap: 15px;
+        grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+        gap: 14px;
     }
 
     .entity-card {
-        background-color: #252526;
-        border: 2px solid transparent; /* default */
-        border-radius: 8px;
-        padding: 12px;
+        background: #101010;
+        border: 1px solid #202020;
+        border-radius: 16px;
+        padding: 16px;
         cursor: pointer;
-        transition: transform 0.2s, box-shadow 0.2s;
-        min-height: 80px;
+        transition: background-color 120ms ease, border-color 120ms ease, transform 120ms ease;
+        min-height: 104px;
         display: flex;
         flex-direction: column;
     }
+
     .entity-card:hover {
-        transform: translateY(-2px);
-        box-shadow: 0 4px 8px rgba(0,0,0,0.3);
+        transform: translateY(-1px);
+        background: #151515;
+        border-color: #3a3a3a;
     }
 
-    /* Colors Requested by User */
-    .card-character { border-color: #FFD700; } /* 金色 */
-    .card-faction { border-color: #F44336; } /* 红色 */
-    .card-item { border-color: #FFFFFF; } /* 白色 */
-    .card-scene { border-color: #9E9E9E; } /* 灰色 */
-
     .card-name {
-        font-weight: bold;
-        margin-bottom: 5px;
-        color: #9cdcfe;
+        font-weight: 700;
+        margin-bottom: 8px;
+        font-size: 16px;
+        letter-spacing: -0.02em;
         white-space: nowrap;
         overflow: hidden;
         text-overflow: ellipsis;
     }
 
     .card-summary {
-        font-size: 12px;
-        color: #888;
+        font-size: 13px;
+        color: #9f9f9f;
+        line-height: 1.6;
         display: -webkit-box;
-        -webkit-line-clamp: 2;
+        -webkit-line-clamp: 3;
         -webkit-box-orient: vertical;
         overflow: hidden;
     }
 
-    /* Modal Styling */
     .modal-overlay {
         position: fixed;
         top: 0; left: 0; right: 0; bottom: 0;
-        background-color: rgba(0,0,0,0.5);
-        backdrop-filter: blur(5px);
+        background-color: rgba(0,0,0,0.78);
         display: flex;
         justify-content: center;
         align-items: center;
@@ -575,119 +544,99 @@
     }
 
     .modal-content {
-        background-color: #1e1e1e;
-        border-radius: 12px;
-        width: 500px;
+        background-color: #090909;
+        border-radius: 22px;
+        width: 560px;
         max-width: 90vw;
         max-height: 90vh;
         display: flex;
         flex-direction: column;
-        border: 1px solid #3e3e42;
-        box-shadow: 0 8px 16px rgba(0,0,0,0.5);
+        border: 1px solid #262626;
+        box-shadow: 0 24px 60px rgba(0,0,0,0.52);
     }
 
     .modal-header {
         display: flex;
         justify-content: space-between;
         align-items: center;
-        padding: 15px 20px;
-        border-bottom: 1px solid #333;
+        padding: 18px 22px;
+        border-bottom: 1px solid #1d1d1d;
     }
 
-    .modal-header h3 { margin: 0; color: #dcdcaa; }
+    .modal-header h3 {
+        margin: 0;
+        font-size: 18px;
+        letter-spacing: -0.02em;
+    }
 
     .close-btn {
-        background: none;
-        border: none;
-        color: #d4d4d4;
-        font-size: 18px;
+        min-height: 34px;
+        padding: 0 12px;
+        border-radius: 999px;
+        border: 1px solid #2a2a2a;
+        background: #0f0f0f;
+        color: #d9d9d9;
         cursor: pointer;
     }
 
     .modal-body {
-        padding: 20px;
+        padding: 20px 22px;
         overflow-y: auto;
         display: flex;
         flex-direction: column;
-        gap: 15px;
+        gap: 16px;
     }
 
     .form-group {
         display: flex;
         flex-direction: column;
-        gap: 5px;
+        gap: 8px;
     }
 
     .form-group label {
-        color: #9cdcfe;
         font-size: 13px;
-        font-weight: bold;
-    }
-
-    .form-group input, .form-group textarea {
-        background-color: #252526;
-        color: #d4d4d4;
-        border: 1px solid #3e3e42;
-        padding: 8px;
-        border-radius: 4px;
-        font-family: inherit;
+        font-weight: 600;
+        color: #cfcfcf;
     }
 
     .desc-row {
         display: flex;
         gap: 10px;
-        margin-bottom: 5px;
         align-items: flex-start;
     }
 
     .desc-row textarea { flex: 1; }
 
-    .btn-remove {
-        background: none;
-        border: none;
-        cursor: pointer;
-        font-size: 16px;
-        padding: 5px;
-    }
-
     .btn-add-minor {
-        background-color: #333;
-        color: #d4d4d4;
-        border: 1px dashed #555;
-        padding: 6px;
-        border-radius: 4px;
-        cursor: pointer;
-        font-size: 12px;
         align-self: flex-start;
     }
-    .btn-add-minor:hover { background-color: #444; }
 
     .modal-footer {
-        padding: 15px 20px;
-        border-top: 1px solid #333;
+        padding: 18px 22px;
+        border-top: 1px solid #1d1d1d;
         display: flex;
         justify-content: flex-end;
         gap: 10px;
     }
 
-    .btn-save {
-        background-color: #4CAF50;
-        color: white;
-        border: none;
-        padding: 8px 16px;
-        border-radius: 4px;
-        cursor: pointer;
-        font-weight: bold;
-    }
-    .btn-save:hover { background-color: #45a049; }
+    @@media (max-width: 900px) {
+        .split-container {
+            flex-direction: column;
+        }
 
-    .btn-delete {
-        background-color: transparent;
-        color: #F44336;
-        border: 1px solid #F44336;
-        padding: 8px 16px;
-        border-radius: 4px;
-        cursor: pointer;
+        .controls,
+        .category-header,
+        .desc-row {
+            flex-direction: column;
+            align-items: stretch;
+        }
+
+        .right-controls {
+            width: 100%;
+        }
+
+        .right-controls > * {
+            flex: 1;
+        }
     }
-    .btn-delete:hover { background-color: rgba(244, 67, 54, 0.1); }
 </style>
