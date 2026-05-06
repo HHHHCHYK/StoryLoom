@@ -25,8 +25,17 @@ namespace StoryLoom.Services
 
         public async Task<string> TestConnectionAsync(bool isPromptModel = false)
         {
-            var apiUrl = isPromptModel ? _settings.PromptApiUrl : _settings.StoryApiUrl;
-            var modelName = isPromptModel ? _settings.PromptModelName : _settings.StoryModelName;
+            return await TestConnectionAsync(isPromptModel ? LlmModelRole.Prompt : LlmModelRole.Story);
+        }
+
+        public async Task<string> TestConnectionAsync(LlmModelRole role)
+        {
+            var (apiUrl, modelName) = role switch
+            {
+                LlmModelRole.Prompt => (_settings.PromptApiUrl, _settings.PromptModelName),
+                LlmModelRole.EntityParser => (_settings.EntityParserApiUrl, _settings.EntityParserModelName),
+                _ => (_settings.StoryApiUrl, _settings.StoryModelName)
+            };
             _logger.Log($"Testing connection to {apiUrl} with model {modelName}...");
             
             var messages = new List<ChatMessage>
@@ -34,7 +43,7 @@ namespace StoryLoom.Services
                 new ChatMessage { Role = "user", Content = PromptTemplates.TestConnection }
             };
 
-            var response = await _llmClient.GetCompletionAsync(messages, 0.7, 50, isPromptModel);
+            var response = await _llmClient.GetCompletionAsync(messages, 0.7, 50, role);
             _logger.Log("TestConnection successful.");
             return response;
         }

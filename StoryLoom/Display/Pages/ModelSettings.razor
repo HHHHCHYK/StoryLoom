@@ -1,4 +1,5 @@
 @page "/settings"
+@using StoryLoom.Services
 @inject SettingsService Settings
 @inject LlmService Llm
 @inject LogService Logger
@@ -63,6 +64,40 @@
 
         <section class="settings-section surface">
             <div class="section-title-row">
+                <h3>实体解析模型</h3>
+                <span class="section-note">后台解析对话中的角色、物品、势力和场景</span>
+            </div>
+            <div class="form-group inline-check">
+                <label>
+                    <input type="checkbox" @bind="Settings.IsEntityParserEnabled" @bind:after="Settings.NotifyStateChanged" />
+                    启用异步实体解析
+                </label>
+            </div>
+            <div class="form-group">
+                <label>模型名称</label>
+                <input class="field" @bind="Settings.EntityParserModelName" @onfocusout="Settings.NotifyStateChanged" placeholder="e.g. deepseek-chat" />
+            </div>
+            <div class="form-group">
+                <label>API Endpoint URL</label>
+                <input class="field" @bind="Settings.EntityParserApiUrl" @onfocusout="Settings.NotifyStateChanged" placeholder="https://api.deepseek.com/v1" />
+            </div>
+            <div class="form-group">
+                <label>实体解析 API Key</label>
+                <input class="field" type="password" @bind="Settings.EntityParserApiKey" @onfocusout="Settings.NotifyStateChanged" placeholder="Entity parser API Key" />
+            </div>
+            <div class="action-bar-small">
+                <button class="button-ghost btn-secondary" @onclick="TestEntityParserConnection" disabled="@(IsTestingEntityParser)">
+                    @(IsTestingEntityParser ? "测试中..." : "测试实体解析模型")
+                </button>
+            </div>
+            @if (!string.IsNullOrEmpty(TestResultEntityParser))
+            {
+                <div class="test-result @(TestSuccessEntityParser ? "success" : "error")">@TestResultEntityParser</div>
+            }
+        </section>
+
+        <section class="settings-section surface">
+            <div class="section-title-row">
                 <h3>全局参数</h3>
                 <span class="section-note">凭据与基础生成节奏</span>
             </div>
@@ -113,6 +148,10 @@
     private bool IsTestingPrompt = false;
     private string TestResultPrompt = "";
     private bool TestSuccessPrompt = false;
+
+    private bool IsTestingEntityParser = false;
+    private string TestResultEntityParser = "";
+    private bool TestSuccessEntityParser = false;
 
     private bool ShowDevMode = false;
 
@@ -169,6 +208,31 @@
         }
     }
 
+    private async Task TestEntityParserConnection()
+    {
+        Logger.Log("User initiated connection test for Entity Parser Model.");
+        IsTestingEntityParser = true;
+        TestResultEntityParser = "";
+
+        try
+        {
+            var response = await Llm.TestConnectionAsync(LlmModelRole.EntityParser);
+            TestSuccessEntityParser = true;
+            TestResultEntityParser = "连接成功: " + response;
+            Logger.Log("Connection test UI reported success for Entity Parser Model.");
+        }
+        catch (Exception ex)
+        {
+            TestSuccessEntityParser = false;
+            TestResultEntityParser = "连接失败: " + ex.Message;
+            Logger.LogError(ex, "ModelSettings.TestEntityParserConnection");
+        }
+        finally
+        {
+            IsTestingEntityParser = false;
+        }
+    }
+
     private void ToggleDevMode() 
     {
         ShowDevMode = !ShowDevMode;
@@ -186,6 +250,18 @@
         display: flex;
         flex-direction: column;
         gap: 8px;
+    }
+
+    .inline-check label {
+        display: flex;
+        flex-direction: row;
+        align-items: center;
+        gap: 10px;
+        font-weight: 500;
+    }
+
+    .inline-check input {
+        accent-color: var(--accent);
     }
 
     .settings-grid {

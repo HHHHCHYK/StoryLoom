@@ -4,10 +4,10 @@
             @if (!Collapsed)
             {
                 <span class="nav-title">StoryLoom</span>
-                <span class="nav-subtitle">创作工作台</span>
+                <span class="nav-subtitle">AI 剧情驾驶舱</span>
             }
         </div>
-        <button class="collapse-btn" @onclick="ToggleCollapse" aria-label="Toggle navigation width">
+        <button class="button-icon collapse-btn" @onclick="ToggleCollapse" aria-label="切换导航宽度">
             @(Collapsed ? ">" : "<")
         </button>
     </div>
@@ -18,7 +18,7 @@
                 <span class="icon">01</span>
                 @if (!Collapsed)
                 {
-                    <span class="text">存档选择</span>
+                    <span class="text">故事</span>
                 }
             </NavLink>
         </div>
@@ -28,7 +28,7 @@
                 <span class="icon">02</span>
                 @if (!Collapsed)
                 {
-                    <span class="text">故事构建</span>
+                    <span class="text">写作</span>
                 }
             </NavLink>
         </div>
@@ -38,7 +38,7 @@
                 <span class="icon">03</span>
                 @if (!Collapsed)
                 {
-                    <span class="text">世界构建</span>
+                    <span class="text">世界</span>
                 }
             </NavLink>
         </div>
@@ -48,7 +48,7 @@
                 <span class="icon">04</span>
                 @if (!Collapsed)
                 {
-                    <span class="text">模型设置</span>
+                    <span class="text">设置</span>
                 }
             </NavLink>
         </div>
@@ -71,18 +71,18 @@
 
 <style>
     .nav-menu {
-        background: #050505;
+        background: linear-gradient(180deg, rgba(7, 9, 11, 0.98), rgba(4, 6, 8, 0.98));
         height: 100vh;
         display: flex;
         flex-direction: column;
-        transition: width 160ms ease;
-        width: 232px;
+        transition: width var(--transition-base);
+        width: 244px;
         overflow: hidden;
         padding: 20px 14px 18px;
     }
 
     .nav-menu.collapsed {
-        width: 84px;
+        width: 88px;
     }
 
     .nav-header {
@@ -92,7 +92,7 @@
         gap: 12px;
         min-height: 56px;
         padding: 0 4px 20px;
-        border-bottom: 1px solid #161616;
+        border-bottom: 1px solid var(--border-subtle);
         margin-bottom: 16px;
     }
 
@@ -105,7 +105,7 @@
     }
 
     .nav-title {
-        color: #f5f5f5;
+        color: var(--text-main);
         font-size: 18px;
         font-weight: 700;
         letter-spacing: -0.03em;
@@ -113,7 +113,7 @@
     }
 
     .nav-subtitle {
-        color: #707070;
+        color: var(--text-faint);
         font-size: 11px;
         letter-spacing: 0.16em;
         text-transform: uppercase;
@@ -123,21 +123,12 @@
     .collapse-btn {
         width: 34px;
         height: 34px;
-        border-radius: 999px;
-        background: #0d0d0d;
-        border: 1px solid #262626;
-        color: #cfcfcf;
-        cursor: pointer;
+        padding: 0;
+        border-radius: var(--radius-full);
         font-size: 12px;
-        transition: background-color 120ms ease, border-color 120ms ease, color 120ms ease;
+        line-height: 1;
     }
     
-    .collapse-btn:hover {
-        background: #151515;
-        color: #ffffff;
-        border-color: #4a4a4a;
-    }
-
     .nav-links {
         display: flex;
         flex-direction: column;
@@ -145,32 +136,34 @@
     }
 
     .nav-link {
-        color: #a6a6a6;
+        color: var(--text-muted);
         text-decoration: none;
         display: flex;
         align-items: center;
         gap: 12px;
         min-height: 46px;
         padding: 0 12px;
-        border-radius: 14px;
+        border-radius: var(--radius-md);
         border: 1px solid transparent;
         background: transparent;
         white-space: nowrap;
         overflow: hidden;
-        transition: background-color 120ms ease, border-color 120ms ease, color 120ms ease;
+        transition: background-color var(--transition-fast), border-color var(--transition-fast), color var(--transition-fast), transform var(--transition-fast);
     }
 
     .nav-link:hover {
-        background-color: #0f0f0f;
-        border-color: #232323;
-        color: #ffffff;
+        background-color: var(--bg-surface);
+        border-color: var(--border-subtle);
+        color: var(--text-main);
+        transform: translateX(1px);
     }
 
     .nav-link.active {
-        background-color: #ffffff;
-        border-color: #ffffff;
-        color: #000000;
+        background: linear-gradient(180deg, rgba(255, 255, 255, 0.95), rgba(230, 235, 237, 0.95));
+        border-color: rgba(255, 255, 255, 0.92);
+        color: #050607;
         font-weight: 600;
+        box-shadow: 0 10px 22px rgba(0, 0, 0, 0.18);
     }
 
     .icon {
@@ -182,11 +175,11 @@
         font-size: 11px;
         letter-spacing: 0.08em;
         font-weight: 700;
-        color: #707070;
+        color: var(--text-faint);
     }
 
     .nav-link.active .icon {
-        color: #000000;
+        color: #050607;
     }
 
     .text {

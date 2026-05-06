@@ -12,6 +12,7 @@ namespace StoryLoom.Services
     {
         private readonly LlmService _llmService;
         private readonly SettingsService _settingsService;
+        private readonly EntityExtractionQueue _entityExtractionQueue;
         private readonly LogService _logger;
         // Persistence Constants
         private const string SavesDirectory = "Saves";
@@ -23,10 +24,11 @@ namespace StoryLoom.Services
 
         public event Action? OnConversationUpdated;
 
-        public ConversationService(LlmService llmService, SettingsService settingsService, LogService logger)
+        public ConversationService(LlmService llmService, SettingsService settingsService, EntityExtractionQueue entityExtractionQueue, LogService logger)
         {
             _llmService = llmService;
             _settingsService = settingsService;
+            _entityExtractionQueue = entityExtractionQueue;
             _logger = logger;
             // LoadHistory(); // Removed legacy single-file load
         }
@@ -46,6 +48,7 @@ namespace StoryLoom.Services
             var safeContent = content ?? string.Empty;
             _logger.Log($"[{nameof(ConversationService)}] {nameof(AddAiMessageAsync)} called. Message length: {safeContent.Length}");
             CurrentConversation.Messages.Add(new ChatMessage { Role = "assistant", Content = safeContent });
+            _entityExtractionQueue.Enqueue(safeContent, "assistant");
             NotifyUpdate();
             await SaveCurrentStateAsync();
             await CheckAndSummarizeAsync();
@@ -232,6 +235,7 @@ namespace StoryLoom.Services
                 // 2. Save World
                 var worldData = new WorldSettings
                 {
+                    SaveVersion = 2,
                     Background = _settingsService.Background,
                     Protagonist = _settingsService.Protagonist,
                     Characters = _settingsService.Characters,
@@ -318,6 +322,7 @@ namespace StoryLoom.Services
 
         private class WorldSettings
         {
+            public int SaveVersion { get; set; } = 2;
             public string Background { get; set; } = "";
             public string Protagonist { get; set; } = "";
             public List<Character> Characters { get; set; } = new();

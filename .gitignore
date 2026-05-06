@@ -48,3 +48,7 @@ secrets.json
 ## [日志与临时数据]
 *.log
 *.tmp
+
+## [Agents 工作区]
+# AI agents 的临时计划、草稿和工作记录
+.agents/

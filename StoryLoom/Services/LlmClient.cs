@@ -5,6 +5,13 @@ using Microsoft.ML.Tokenizers;
 
 namespace StoryLoom.Services
 {
+    public enum LlmModelRole
+    {
+        Story,
+        Prompt,
+        EntityParser
+    }
+
     public class LlmClient
     {
         private readonly HttpClient _httpClient;
@@ -29,19 +36,23 @@ namespace StoryLoom.Services
             }
         }
 
-        public async Task<string> GetCompletionAsync(IEnumerable<ChatMessage> messages, double temperature, int maxTokens, bool isPromptModel = false)
+        public Task<string> GetCompletionAsync(IEnumerable<ChatMessage> messages, double temperature, int maxTokens, bool isPromptModel = false)
         {
-            _logger.Log($"[{nameof(LlmClient)}] {nameof(GetCompletionAsync)} called. Temperature: {temperature}, MaxTokens: {maxTokens}. Message count: {messages.Count()}, isPromptModel: {isPromptModel}");
-            
-            var modelName = isPromptModel ? _settings.PromptModelName : _settings.StoryModelName;
-            var apiUrl = isPromptModel ? _settings.PromptApiUrl : _settings.StoryApiUrl;
-            
-            if (string.IsNullOrWhiteSpace(_settings.ApiKey) || string.IsNullOrWhiteSpace(apiUrl))
+            return GetCompletionAsync(messages, temperature, maxTokens, isPromptModel ? LlmModelRole.Prompt : LlmModelRole.Story);
+        }
+
+        public async Task<string> GetCompletionAsync(IEnumerable<ChatMessage> messages, double temperature, int maxTokens, LlmModelRole role)
+        {
+            var messageList = messages.ToList();
+            _logger.Log($"[{nameof(LlmClient)}] {nameof(GetCompletionAsync)} called. Temperature: {temperature}, MaxTokens: {maxTokens}. Message count: {messageList.Count}, Role: {role}");
+            var config = GetModelConfig(role);
+
+            if (string.IsNullOrWhiteSpace(config.ApiKey) || string.IsNullOrWhiteSpace(config.ApiUrl))
             {
-                throw new InvalidOperationException("API configuration is missing.");
+                throw new InvalidOperationException($"API configuration is missing for {role} model.");
             }
 
-            var request = CreateRequest(messages, temperature, maxTokens, stream: false, modelName, apiUrl);
+            var request = CreateRequest(messageList, temperature, maxTokens, stream: false, config.ModelName, config.ApiUrl, config.ApiKey, role);
 
             try
             {
@@ -56,36 +67,39 @@ namespace StoryLoom.Services
 
                 var json = await response.Content.ReadAsStringAsync();
                 using var doc = JsonDocument.Parse(json);
-                // Handle different response structures if needed, but standard OpenAI format is:
                 var content = doc.RootElement.GetProperty("choices")[0].GetProperty("message").GetProperty("content").GetString();
                 
                 return content ?? "";
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "LlmClient.GetCompletionAsync");
+                _logger.LogError(ex, $"LlmClient.GetCompletionAsync.{role}");
                 throw;
             }
+        }
+
+        public IAsyncEnumerable<string> StreamCompletionAsync(IEnumerable<ChatMessage> messages, double temperature, int maxTokens, bool isPromptModel = false)
+        {
+            return StreamCompletionAsync(messages, temperature, maxTokens, isPromptModel ? LlmModelRole.Prompt : LlmModelRole.Story);
         }
 
         public async IAsyncEnumerable<string> StreamCompletionAsync(
             IEnumerable<ChatMessage> messages,
             double temperature,
             int maxTokens,
-            bool isPromptModel = false)
+            LlmModelRole role)
         {
-            _logger.Log($"[{nameof(LlmClient)}] {nameof(StreamCompletionAsync)} called. Temperature: {temperature}, MaxTokens: {maxTokens}. Message count: {messages.Count()}, isPromptModel: {isPromptModel}");
+            var messageList = messages.ToList();
+            _logger.Log($"[{nameof(LlmClient)}] {nameof(StreamCompletionAsync)} called. Temperature: {temperature}, MaxTokens: {maxTokens}. Message count: {messageList.Count}, Role: {role}");
+            var config = GetModelConfig(role);
 
-            var modelName = isPromptModel ? _settings.PromptModelName : _settings.StoryModelName;
-            var apiUrl = isPromptModel ? _settings.PromptApiUrl : _settings.StoryApiUrl;
-
-            if (string.IsNullOrWhiteSpace(_settings.ApiKey) || string.IsNullOrWhiteSpace(apiUrl))
+            if (string.IsNullOrWhiteSpace(config.ApiKey) || string.IsNullOrWhiteSpace(config.ApiUrl))
             {
-                yield return "[Error: Configuration missing]";
+                yield return $"[Error: Configuration missing for {role} model]";
                 yield break;
             }
 
-            var request = CreateRequest(messages, temperature, maxTokens, stream: true, modelName, apiUrl);
+            var request = CreateRequest(messageList, temperature, maxTokens, stream: true, config.ModelName, config.ApiUrl, config.ApiKey, role);
 
             using var response = await _httpClient.SendAsync(request, HttpCompletionOption.ResponseHeadersRead);
 
@@ -124,7 +138,6 @@ namespace StoryLoom.Services
                 }
                 catch (Exception ex)
                 {
-                    // Silent catch for chunk parsing errors to avoid breaking stream
                     _logger.LogError(ex, "Stream Parsing"); 
                 }
 
@@ -142,12 +155,11 @@ namespace StoryLoom.Services
             {
                 foreach (var msg in messages)
                 {
-                    tokenCount += _tokenizer.CountTokens(msg.Content ?? "") + 4; // basic heuristic
+                    tokenCount += _tokenizer.CountTokens(msg.Content ?? "") + 4;
                 }
             }
             else
             {
-                // fallback if tokenizer failed to load
                 foreach (var msg in messages)
                 {
                     tokenCount += (msg.Content?.Length ?? 0) / 4;
@@ -156,14 +168,23 @@ namespace StoryLoom.Services
             return tokenCount;
         }
 
-        private HttpRequestMessage CreateRequest(IEnumerable<ChatMessage> messages, double temperature, int maxTokens, bool stream, string modelName, string apiUrl)
+        private LlmModelConfig GetModelConfig(LlmModelRole role)
+        {
+            return role switch
+            {
+                LlmModelRole.Prompt => new LlmModelConfig(_settings.PromptModelName, _settings.PromptApiUrl, _settings.ApiKey),
+                LlmModelRole.EntityParser => new LlmModelConfig(_settings.EntityParserModelName, _settings.EntityParserApiUrl, _settings.EntityParserApiKey),
+                _ => new LlmModelConfig(_settings.StoryModelName, _settings.StoryApiUrl, _settings.ApiKey)
+            };
+        }
+
+        private HttpRequestMessage CreateRequest(IEnumerable<ChatMessage> messages, double temperature, int maxTokens, bool stream, string modelName, string apiUrl, string apiKey, LlmModelRole role)
         {
             var endpoint = apiUrl;
             if (endpoint.EndsWith("/v1", StringComparison.OrdinalIgnoreCase))
             {
                 endpoint += "/chat/completions";
             }
-            // Add other heuristic fix if necessary
 
             var payload = new 
             {
@@ -176,24 +197,29 @@ namespace StoryLoom.Services
 
             int tokenCount = CalculateTokenCount(messages);
             
-            _logger.Log($"[{nameof(LlmClient)}] Calculated tokens: ~{tokenCount}. Calling ToastService.");
-            _toastService.ShowToast($"正在发送请求... (~{tokenCount} tokens)");
+            _logger.Log($"[{nameof(LlmClient)}] Calculated tokens: ~{tokenCount}. Role: {role}");
+            if (role != LlmModelRole.EntityParser)
+            {
+                _toastService.ShowToast($"正在发送请求... (~{tokenCount} tokens)");
+            }
 
             var lastMessage = messages.LastOrDefault();
             if (lastMessage != null)
             {
-                _logger.Log($"[{nameof(LlmClient)}] Sending Prompt Content:\n{lastMessage.Content}");
+                _logger.Log($"[{nameof(LlmClient)}] Sending Prompt Content:{Environment.NewLine}{lastMessage.Content}");
             }
             
             var messagesJson = JsonSerializer.Serialize(messages, new JsonSerializerOptions { WriteIndented = true, Encoder = System.Text.Encodings.Web.JavaScriptEncoder.UnsafeRelaxedJsonEscaping });
-            _logger.Log($"[{nameof(LlmClient)}] Full Conversation Content:\n{messagesJson}");
+            _logger.Log($"[{nameof(LlmClient)}] Full Conversation Content:{Environment.NewLine}{messagesJson}");
             
             var json = JsonSerializer.Serialize(payload);
             var request = new HttpRequestMessage(HttpMethod.Post, endpoint);
-            request.Headers.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", _settings.ApiKey);
+            request.Headers.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", apiKey);
             request.Content = new StringContent(json, Encoding.UTF8, "application/json");
 
             return request;
         }
     }
+
+    public record LlmModelConfig(string ModelName, string ApiUrl, string ApiKey);
 }

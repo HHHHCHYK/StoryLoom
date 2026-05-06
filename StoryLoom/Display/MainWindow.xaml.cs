@@ -1,4 +1,4 @@
-﻿using System.Windows;
+using System.Windows;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace StoryLoom;
@@ -24,6 +24,10 @@ public partial class MainWindow : Window
         serviceCollection.AddSingleton<Services.SettingsService>();
         serviceCollection.AddSingleton<Services.LogService>();
         serviceCollection.AddSingleton<Services.ConversationService>();
+        serviceCollection.AddSingleton<Services.ContextBuilderService>();
+        serviceCollection.AddSingleton<Services.EntityExtractionService>();
+        serviceCollection.AddSingleton<Services.EntityMergeService>();
+        serviceCollection.AddSingleton<Services.EntityExtractionQueue>();
         serviceCollection.AddSingleton<Services.ToastService>();
         serviceCollection.AddSingleton<Services.AppControlService>();
         

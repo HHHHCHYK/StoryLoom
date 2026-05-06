@@ -24,6 +24,11 @@ namespace StoryLoom.Services
         /// <summary>提示模型 API 的基础地址。</summary>
         public string PromptApiUrl { get; set; } = "https://api.deepseek.com/v1";
 
+        public string EntityParserModelName { get; set; } = "deepseek-chat";
+        public string EntityParserApiUrl { get; set; } = "https://api.deepseek.com/v1";
+        public string EntityParserApiKey { get; set; } = "";
+        public bool IsEntityParserEnabled { get; set; } = true;
+
         /// <summary>API 访问密钥 (Key)。所有模型共享此 Key。</summary>
         public string ApiKey { get; set; } = "";
         /// <summary>温度值 (Temperature)，控制生成的随机性 (0.0 - 1.0)。</summary>
@@ -55,6 +60,8 @@ namespace StoryLoom.Services
 
         /// <summary>判断提示模型是否已配置（检查 Key 和 URL 是否非空）。</summary>
         public bool IsPromptModelConfigured => !string.IsNullOrWhiteSpace(ApiKey) && !string.IsNullOrWhiteSpace(PromptApiUrl);
+
+        public bool IsEntityParserConfigured => !string.IsNullOrWhiteSpace(EntityParserApiKey) && !string.IsNullOrWhiteSpace(EntityParserApiUrl);
 
         /// <summary>判断是否所有模型都已配置。</summary>
         public bool IsModelConfigured => IsStoryModelConfigured && IsPromptModelConfigured;
@@ -102,6 +109,10 @@ namespace StoryLoom.Services
                         StoryApiUrl = !string.IsNullOrEmpty(config.StoryApiUrl) ? config.StoryApiUrl : config.ApiUrl ?? "https://api.deepseek.com/v1";
                         PromptModelName = !string.IsNullOrEmpty(config.PromptModelName) ? config.PromptModelName : StoryModelName;
                         PromptApiUrl = !string.IsNullOrEmpty(config.PromptApiUrl) ? config.PromptApiUrl : StoryApiUrl;
+                        EntityParserModelName = !string.IsNullOrEmpty(config.EntityParserModelName) ? config.EntityParserModelName : PromptModelName;
+                        EntityParserApiUrl = !string.IsNullOrEmpty(config.EntityParserApiUrl) ? config.EntityParserApiUrl : PromptApiUrl;
+                        EntityParserApiKey = config.EntityParserApiKey;
+                        IsEntityParserEnabled = config.IsEntityParserEnabled;
 
                         ApiKey = config.ApiKey;
                         Temperature = config.Temperature;
@@ -180,6 +191,10 @@ namespace StoryLoom.Services
             public string StoryApiUrl { get; set; } = "https://api.deepseek.com/v1";
             public string PromptModelName { get; set; } = "deepseek-chat";
             public string PromptApiUrl { get; set; } = "https://api.deepseek.com/v1";
+            public string EntityParserModelName { get; set; } = "deepseek-chat";
+            public string EntityParserApiUrl { get; set; } = "https://api.deepseek.com/v1";
+            public string EntityParserApiKey { get; set; } = "";
+            public bool IsEntityParserEnabled { get; set; } = true;
             public string ApiKey { get; set; } = "";
             public double Temperature { get; set; } = 0.7;
             public int MaxContextWindow { get; set; } = 4096;
