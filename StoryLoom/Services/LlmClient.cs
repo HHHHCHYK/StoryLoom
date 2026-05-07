@@ -68,6 +68,11 @@ namespace StoryLoom.Services
                 var json = await response.Content.ReadAsStringAsync();
                 using var doc = JsonDocument.Parse(json);
                 var content = doc.RootElement.GetProperty("choices")[0].GetProperty("message").GetProperty("content").GetString();
+                _logger.Log($"[{nameof(LlmClient)}] Response content received. Role: {role}, Length: {content?.Length ?? 0}");
+                if (role == LlmModelRole.EntityParser)
+                {
+                    _logger.Log($"[{nameof(LlmClient)}] EntityParser Response Content:{Environment.NewLine}{content}");
+                }
                 
                 return content ?? "";
             }
@@ -170,12 +175,14 @@ namespace StoryLoom.Services
 
         private LlmModelConfig GetModelConfig(LlmModelRole role)
         {
-            return role switch
+            var config = role switch
             {
-                LlmModelRole.Prompt => new LlmModelConfig(_settings.PromptModelName, _settings.PromptApiUrl, _settings.ApiKey),
+                LlmModelRole.Prompt => new LlmModelConfig(_settings.PromptModelName, _settings.PromptApiUrl, _settings.PromptApiKey),
                 LlmModelRole.EntityParser => new LlmModelConfig(_settings.EntityParserModelName, _settings.EntityParserApiUrl, _settings.EntityParserApiKey),
-                _ => new LlmModelConfig(_settings.StoryModelName, _settings.StoryApiUrl, _settings.ApiKey)
+                _ => new LlmModelConfig(_settings.StoryModelName, _settings.StoryApiUrl, _settings.StoryApiKey)
             };
+
+            return new LlmModelConfig(config.ModelName.Trim(), config.ApiUrl.Trim(), config.ApiKey.Trim());
         }
 
         private HttpRequestMessage CreateRequest(IEnumerable<ChatMessage> messages, double temperature, int maxTokens, bool stream, string modelName, string apiUrl, string apiKey, LlmModelRole role)

@@ -43,9 +43,11 @@ namespace StoryLoom.Services
                 new ChatMessage { Role = "user", Content = PromptTemplates.TestConnection }
             };
 
-            var response = await _llmClient.GetCompletionAsync(messages, 0.7, 50, role);
+            var response = await _llmClient.GetCompletionAsync(messages, 0, 128, role);
             _logger.Log("TestConnection successful.");
-            return response;
+            return string.IsNullOrWhiteSpace(response)
+                ? "API 已响应，但模型返回内容为空。连接本身是成功的。"
+                : response.Trim();
         }
 
         public async Task<string> SummarizeTextAsync(string textToSummarize, string existingSummary = "")

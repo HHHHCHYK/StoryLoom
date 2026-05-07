@@ -1,0 +1,444 @@
+@using StoryLoom.Services
+@inject EntityChangeReviewService EntityReview
+@inject EntityMergeService EntityMerge
+@inject ConversationService ConversationService
+@implements IDisposable
+
+@if (EntityReview.IsExtracting)
+{
+    <div class="entity-review-status status-panel">
+        <span class="status-spinner"></span>
+        <div>
+            <div class="status-title">正在解析实体</div>
+            <div class="status-subtitle">系统正在提取新增和修改内容</div>
+        </div>
+    </div>
+}
+
+@if (!string.IsNullOrWhiteSpace(EntityReview.LastError))
+{
+    <div class="entity-review-status status-panel error-panel">
+        <div>
+            <div class="status-title">实体解析失败</div>
+            <div class="status-subtitle">@EntityReview.LastError</div>
+        </div>
+    </div>
+}
+
+@if (PendingChangeSet != null)
+{
+    <div class="entity-review-overlay" @onclick="DismissChangeSet">
+        <div class="entity-review-modal" @onclick:stopPropagation>
+            <div class="review-header">
+                <div>
+                    <span class="review-eyebrow">Entity Review</span>
+                    <h3>@GetReviewTitle(PendingChangeSet.Mode)</h3>
+                    <p>@GetReviewDescription(PendingChangeSet.Mode)</p>
+                </div>
+                <button class="close-btn" @onclick="DismissChangeSet">关闭</button>
+            </div>
+            <div class="review-summary">
+                <span>新增 @PendingChangeSet.Added.Count</span>
+                <span>修改 @PendingChangeSet.Modified.Count</span>
+            </div>
+            <div class="review-content">
+                @if (PendingChangeSet.Added.Any())
+                {
+                    <div class="diff-divider"><span>新增</span></div>
+                    <div class="review-group">
+                        @foreach (var change in PendingChangeSet.Added)
+                        {
+                            @RenderChangeCard(change)
+                        }
+                    </div>
+                }
+                @if (PendingChangeSet.Modified.Any())
+                {
+                    <div class="diff-divider"><span>修改</span></div>
+                    <div class="review-group">
+                        @foreach (var change in PendingChangeSet.Modified)
+                        {
+                            @RenderChangeCard(change)
+                        }
+                    </div>
+                }
+            </div>
+            <div class="review-footer">
+                <button class="button-ghost btn-secondary" @onclick="DismissChangeSet">取消</button>
+                <button class="button ai-btn" @onclick="ConfirmChangeSet">确认写入</button>
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    private EntityChangeSet? PendingChangeSet => EntityReview.PendingChangeSet;
+
+    protected override void OnInitialized()
+    {
+        EntityReview.OnChange += HandleEntityReviewChanged;
+    }
+
+    public void Dispose()
+    {
+        EntityReview.OnChange -= HandleEntityReviewChanged;
+    }
+
+    private void HandleEntityReviewChanged()
+    {
+        _ = InvokeAsync(StateHasChanged);
+    }
+
+    private async Task ConfirmChangeSet()
+    {
+        var changeSet = EntityReview.TakePendingChangeSet();
+        if (changeSet == null)
+        {
+            return;
+        }
+
+        var changed = EntityMerge.Apply(changeSet);
+        if (changed)
+        {
+            await ConversationService.SaveCurrentStateAsync();
+        }
+    }
+
+    private void DismissChangeSet()
+    {
+        EntityReview.DismissPendingChangeSet();
+    }
+
+    private RenderFragment RenderChangeCard(EntityChangePreview change) => @<div class="review-entity-card">
+        <div class="review-card-topline">
+            <div>
+                <div class="review-card-name">@change.Name</div>
+                <div class="review-card-kind">@GetChangeKindName(change.Kind)</div>
+            </div>
+            <span class="entity-type-tag">@GetExtractedTypeName(change.Type)</span>
+        </div>
+        @if (change.Kind == EntityChangeKind.Added)
+        {
+            <div class="review-card-summary">@(string.IsNullOrWhiteSpace(change.IncomingSummary) ? "暂无简介" : change.IncomingSummary)</div>
+        }
+        else
+        {
+            <div class="review-diff-block">
+                <span>当前简介</span>
+                <p>@(string.IsNullOrWhiteSpace(change.CurrentSummary) ? "暂无简介" : change.CurrentSummary)</p>
+            </div>
+            @if (!string.IsNullOrWhiteSpace(change.IncomingSummary))
+            {
+                <div class="review-diff-block incoming">
+                    <span>将补充简介</span>
+                    <p>@change.IncomingSummary</p>
+                </div>
+            }
+        }
+        @if (change.IncomingDescriptions.Any())
+        {
+            <div class="review-description-list">
+                <span>@(change.Kind == EntityChangeKind.Added ? "详细描述" : "将追加的细节")</span>
+                <ul>
+                    @foreach (var description in change.IncomingDescriptions)
+                    {
+                        <li>@description</li>
+                    }
+                </ul>
+            </div>
+        }
+    </div>;
+
+    private string GetExtractedTypeName(ExtractedEntityType type) => type switch
+    {
+        ExtractedEntityType.Character => "角色",
+        ExtractedEntityType.Faction => "势力",
+        ExtractedEntityType.Item => "物品",
+        ExtractedEntityType.Scene => "场景",
+        _ => "实体"
+    };
+
+    private static string GetChangeKindName(EntityChangeKind kind) => kind switch
+    {
+        EntityChangeKind.Added => "新增",
+        EntityChangeKind.Modified => "修改",
+        _ => "变化"
+    };
+
+    private static string GetReviewTitle(EntityChangeReviewMode mode) => mode switch
+    {
+        EntityChangeReviewMode.UserInputPreflight => "确认用户输入中的实体变更",
+        EntityChangeReviewMode.AiResponseReview => "确认 AI 回复中的实体变更",
+        _ => "确认写入实体变更"
+    };
+
+    private static string GetReviewDescription(EntityChangeReviewMode mode) => mode switch
+    {
+        EntityChangeReviewMode.UserInputPreflight => "系统从你的输入中发现了可写入世界数据的新增或修改内容，确认后才会合并到世界设定。",
+        EntityChangeReviewMode.AiResponseReview => "系统从 AI 回复中发现了可写入世界数据的新增或修改内容，确认后才会合并到世界设定。",
+        _ => "新增与修改内容在确认前不会写入世界数据。"
+    };
+}
+
+<style>
+    .entity-review-status {
+        position: fixed;
+        right: 22px;
+        top: 78px;
+        z-index: 950;
+    }
+
+    .status-panel {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        min-width: 260px;
+        max-width: 420px;
+        padding: 14px 16px;
+        border-radius: 18px;
+        background: rgba(10, 10, 10, 0.96);
+        border: 1px solid #282828;
+        box-shadow: 0 20px 52px rgba(0, 0, 0, 0.45);
+    }
+
+    .error-panel {
+        border-color: rgba(255, 116, 116, 0.38);
+        background: rgba(42, 11, 11, 0.96);
+    }
+
+    .status-spinner {
+        width: 16px;
+        height: 16px;
+        border: 2px solid rgba(255, 255, 255, 0.16);
+        border-top-color: #ffffff;
+        border-radius: 50%;
+        animation: spin 0.8s linear infinite;
+    }
+
+    .status-title {
+        font-size: 14px;
+        font-weight: 700;
+        color: #f5f5f5;
+    }
+
+    .status-subtitle {
+        margin-top: 3px;
+        font-size: 12px;
+        line-height: 1.45;
+        color: #a3a3a3;
+    }
+
+    .entity-review-overlay {
+        position: fixed;
+        inset: 0;
+        z-index: 1100;
+        display: flex;
+        justify-content: flex-end;
+        background: rgba(0, 0, 0, 0.58);
+    }
+
+    .entity-review-modal {
+        width: min(720px, 92vw);
+        height: 100%;
+        display: flex;
+        flex-direction: column;
+        background: #090909;
+        border-left: 1px solid #262626;
+        box-shadow: -24px 0 60px rgba(0, 0, 0, 0.48);
+    }
+
+    .review-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: flex-start;
+        gap: 18px;
+        padding: 24px;
+        border-bottom: 1px solid #1d1d1d;
+    }
+
+    .review-eyebrow {
+        color: #8f8f8f;
+        font-size: 12px;
+        text-transform: uppercase;
+        letter-spacing: 0.12em;
+    }
+
+    .review-header h3 {
+        margin: 8px 0 8px;
+        font-size: 22px;
+        letter-spacing: -0.03em;
+    }
+
+    .review-header p {
+        margin: 0;
+        color: #9f9f9f;
+        font-size: 13px;
+    }
+
+    .review-summary {
+        display: flex;
+        gap: 10px;
+        padding: 14px 24px;
+        border-bottom: 1px solid #1d1d1d;
+    }
+
+    .review-summary span {
+        padding: 7px 12px;
+        border-radius: 999px;
+        background: #121212;
+        border: 1px solid #252525;
+        color: #d7d7d7;
+        font-size: 13px;
+    }
+
+    .review-content {
+        flex: 1;
+        overflow-y: auto;
+        padding: 22px 24px;
+    }
+
+    .diff-divider {
+        display: flex;
+        align-items: center;
+        gap: 14px;
+        margin: 8px 0 18px;
+        color: #a6a6a6;
+        font-size: 13px;
+        font-weight: 700;
+    }
+
+    .diff-divider::before,
+    .diff-divider::after {
+        content: "";
+        flex: 1;
+        height: 1px;
+        background: linear-gradient(90deg, transparent, #333333, transparent);
+    }
+
+    .diff-divider span {
+        padding: 4px 12px;
+        border-radius: 999px;
+        border: 1px solid #303030;
+        background: #111111;
+    }
+
+    .review-group {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+        gap: 14px;
+        margin-bottom: 26px;
+    }
+
+    .review-entity-card {
+        position: relative;
+        min-height: 168px;
+        padding: 16px;
+        border-radius: 18px;
+        background: #101010;
+        border: 1px solid #242424;
+        box-shadow: 0 16px 34px rgba(0, 0, 0, 0.24);
+    }
+
+    .review-card-topline {
+        display: flex;
+        justify-content: space-between;
+        gap: 14px;
+        align-items: flex-start;
+        margin-bottom: 12px;
+    }
+
+    .review-card-name {
+        font-size: 16px;
+        font-weight: 800;
+        letter-spacing: -0.02em;
+        color: #f4f4f4;
+    }
+
+    .review-card-kind {
+        margin-top: 4px;
+        color: #a6a6a6;
+        font-size: 12px;
+    }
+
+    .entity-type-tag {
+        flex-shrink: 0;
+        padding: 5px 9px;
+        border-radius: 999px;
+        background: #171717;
+        border: 1px solid #383838;
+        color: #e7e7e7;
+        font-size: 12px;
+        font-weight: 700;
+    }
+
+    .review-card-summary,
+    .review-diff-block p {
+        margin: 0;
+        color: #b8b8b8;
+        line-height: 1.6;
+        font-size: 13px;
+    }
+
+    .review-diff-block {
+        margin-top: 10px;
+        padding: 10px;
+        border-radius: 12px;
+        background: #0c0c0c;
+        border: 1px solid #202020;
+    }
+
+    .review-diff-block.incoming {
+        border-color: rgba(95, 210, 140, 0.32);
+        background: rgba(38, 120, 72, 0.08);
+    }
+
+    .review-diff-block span,
+    .review-description-list > span {
+        display: block;
+        margin-bottom: 6px;
+        color: #8d8d8d;
+        font-size: 12px;
+        font-weight: 700;
+    }
+
+    .review-description-list {
+        margin-top: 12px;
+    }
+
+    .review-description-list ul {
+        margin: 0;
+        padding-left: 18px;
+        color: #bdbdbd;
+        font-size: 13px;
+        line-height: 1.65;
+    }
+
+    .review-footer {
+        display: flex;
+        justify-content: flex-end;
+        gap: 10px;
+        padding: 18px 24px;
+        border-top: 1px solid #1d1d1d;
+        background: #090909;
+    }
+
+    @@keyframes spin {
+        to {
+            transform: rotate(360deg);
+        }
+    }
+
+    @@media (max-width: 820px) {
+        .entity-review-overlay {
+            justify-content: center;
+        }
+
+        .entity-review-modal {
+            width: 100%;
+        }
+
+        .review-group {
+            grid-template-columns: 1fr;
+        }
+    }
+</style>

@@ -8,27 +8,31 @@ public class EntityExtractionQueue
     private readonly SemaphoreSlim _signal = new(0);
     private readonly EntityExtractionService _extractionService;
     private readonly EntityMergeService _mergeService;
+    private readonly EntityChangeReviewService _reviewService;
     private readonly SettingsService _settings;
     private readonly LogService _logger;
     private readonly object _workerLock = new();
     private bool _isWorkerRunning;
 
-    public EntityExtractionQueue(EntityExtractionService extractionService, EntityMergeService mergeService, SettingsService settings, LogService logger)
+    public event Func<Task>? OnEntitiesAutoApplied;
+
+    public EntityExtractionQueue(EntityExtractionService extractionService, EntityMergeService mergeService, EntityChangeReviewService reviewService, SettingsService settings, LogService logger)
     {
         _extractionService = extractionService;
         _mergeService = mergeService;
+        _reviewService = reviewService;
         _settings = settings;
         _logger = logger;
     }
 
-    public void Enqueue(string content, string source)
+    public void Enqueue(string content, string source, EntityChangeReviewMode mode = EntityChangeReviewMode.AiResponseReview)
     {
-        if (!_settings.IsEntityParserEnabled || string.IsNullOrWhiteSpace(content))
+        if (!ShouldEnqueue(content, mode))
         {
             return;
         }
 
-        _queue.Enqueue(new EntityExtractionJob(content, source, DateTime.Now));
+        _queue.Enqueue(new EntityExtractionJob(content, source, mode, DateTime.Now));
         _signal.Release();
         EnsureWorker();
     }
@@ -60,15 +64,41 @@ public class EntityExtractionQueue
                     continue;
                 }
 
+                while (_reviewService.HasPendingChangeSet)
+                {
+                    await Task.Delay(250);
+                }
+
                 try
                 {
-                    _logger.Log($"Entity extraction started. Source: {job.Source}, Length: {job.Content.Length}");
+                    _reviewService.NotifyExtractionStarted(job.Source);
+                    _logger.Log($"Entity extraction started. Source: {job.Source}, Mode: {job.Mode}, Length: {job.Content.Length}");
                     var result = await _extractionService.ExtractAsync(job.Content);
-                    var changed = _mergeService.Merge(result);
-                    _logger.Log($"Entity extraction finished. Changed: {changed}");
+                    var changeSet = _mergeService.CreateChangeSet(result, job.Source, job.Mode);
+                    if (_settings.IsEntityParserAutoApplyEnabled)
+                    {
+                        var changed = _mergeService.Apply(changeSet);
+                        _reviewService.NotifyAutoApplied(changeSet, changed);
+                        if (changed && OnEntitiesAutoApplied != null)
+                        {
+                            await OnEntitiesAutoApplied.Invoke();
+                        }
+                        _logger.Log($"Entity extraction auto-applied. Mode: {job.Mode}, Change count: {changeSet.Count}, Changed: {changed}");
+                    }
+                    else
+                    {
+                        _reviewService.NotifyExtractionFinished(changeSet);
+                        _logger.Log($"Entity extraction finished. Mode: {job.Mode}, Pending changes: {changeSet.Count}");
+                    }
+                }
+                catch (EntityExtractionException ex)
+                {
+                    _reviewService.NotifyExtractionFailed($"实体解析失败：{ex.Message}");
+                    _logger.LogError(ex, "EntityExtractionQueue.ProcessQueueAsync");
                 }
                 catch (Exception ex)
                 {
+                    _reviewService.NotifyExtractionFailed("实体解析失败，请查看日志");
                     _logger.LogError(ex, "EntityExtractionQueue.ProcessQueueAsync");
                 }
 
@@ -94,6 +124,21 @@ public class EntityExtractionQueue
             }
         }
     }
+
+    private bool ShouldEnqueue(string content, EntityChangeReviewMode mode)
+    {
+        if (!_settings.IsEntityParserEnabled || string.IsNullOrWhiteSpace(content))
+        {
+            return false;
+        }
+
+        return mode switch
+        {
+            EntityChangeReviewMode.UserInputPreflight => _settings.IsEntityParserBeforeSendEnabled,
+            EntityChangeReviewMode.AiResponseReview => _settings.IsEntityParserAfterSendEnabled,
+            _ => true
+        };
+    }
 }
 
-public record EntityExtractionJob(string Content, string Source, DateTime CreatedAt);
+public record EntityExtractionJob(string Content, string Source, EntityChangeReviewMode Mode, DateTime CreatedAt);

@@ -30,6 +30,7 @@ namespace StoryLoom.Services
             _settingsService = settingsService;
             _entityExtractionQueue = entityExtractionQueue;
             _logger = logger;
+            _entityExtractionQueue.OnEntitiesAutoApplied += SaveCurrentStateAsync;
             // LoadHistory(); // Removed legacy single-file load
         }
 
@@ -38,6 +39,7 @@ namespace StoryLoom.Services
             var safeContent = content ?? string.Empty;
             _logger.Log($"[{nameof(ConversationService)}] {nameof(AddUserMessageAsync)} called. Message length: {safeContent.Length}");
             CurrentConversation.Messages.Add(new ChatMessage { Role = "user", Content = safeContent });
+            _entityExtractionQueue.Enqueue(safeContent, "user", EntityChangeReviewMode.UserInputPreflight);
             NotifyUpdate();
             await SaveCurrentStateAsync();
             await CheckAndSummarizeAsync();
@@ -48,7 +50,7 @@ namespace StoryLoom.Services
             var safeContent = content ?? string.Empty;
             _logger.Log($"[{nameof(ConversationService)}] {nameof(AddAiMessageAsync)} called. Message length: {safeContent.Length}");
             CurrentConversation.Messages.Add(new ChatMessage { Role = "assistant", Content = safeContent });
-            _entityExtractionQueue.Enqueue(safeContent, "assistant");
+            _entityExtractionQueue.Enqueue(safeContent, "assistant", EntityChangeReviewMode.AiResponseReview);
             NotifyUpdate();
             await SaveCurrentStateAsync();
             await CheckAndSummarizeAsync();

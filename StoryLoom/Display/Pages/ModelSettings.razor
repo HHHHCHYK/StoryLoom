@@ -27,6 +27,10 @@
                 <label>API Endpoint URL</label>
                 <input class="field" @bind="Settings.StoryApiUrl" @onfocusout="Settings.NotifyStateChanged" placeholder="https://api.deepseek.com/v1" />
             </div>
+            <div class="form-group">
+                <label>正文模型 API Key</label>
+                <input class="field" type="password" @bind="Settings.StoryApiKey" @bind:after="Settings.NotifyStateChanged" placeholder="Story model API Key" />
+            </div>
             <div class="action-bar-small">
                 <button class="button-ghost btn-secondary" @onclick="() => TestConnection(false)" disabled="@(IsTestingStory)">
                     @(IsTestingStory ? "测试中..." : "测试正文模型")
@@ -51,6 +55,10 @@
                 <label>API Endpoint URL</label>
                 <input class="field" @bind="Settings.PromptApiUrl" @onfocusout="Settings.NotifyStateChanged" placeholder="https://api.deepseek.com/v1" />
             </div>
+            <div class="form-group">
+                <label>提示模型 API Key</label>
+                <input class="field" type="password" @bind="Settings.PromptApiKey" @bind:after="Settings.NotifyStateChanged" placeholder="Prompt model API Key" />
+            </div>
             <div class="action-bar-small">
                 <button class="button-ghost btn-secondary" @onclick="() => TestConnection(true)" disabled="@(IsTestingPrompt)">
                     @(IsTestingPrompt ? "测试中..." : "测试提示模型")
@@ -70,7 +78,27 @@
             <div class="form-group inline-check">
                 <label>
                     <input type="checkbox" @bind="Settings.IsEntityParserEnabled" @bind:after="Settings.NotifyStateChanged" />
-                    启用异步实体解析
+                    自动解析实体
+                </label>
+            </div>
+            <div class="parser-options">
+                <div class="form-group inline-check">
+                    <label class="@(!Settings.IsEntityParserEnabled ? "disabled-option" : "")">
+                        <input type="checkbox" @bind="Settings.IsEntityParserBeforeSendEnabled" @bind:after="Settings.NotifyStateChanged" disabled="@(!Settings.IsEntityParserEnabled)" />
+                        发送前检测用户输入
+                    </label>
+                </div>
+                <div class="form-group inline-check">
+                    <label class="@(!Settings.IsEntityParserEnabled ? "disabled-option" : "")">
+                        <input type="checkbox" @bind="Settings.IsEntityParserAfterSendEnabled" @bind:after="Settings.NotifyStateChanged" disabled="@(!Settings.IsEntityParserEnabled)" />
+                        发送后检测 AI 回复
+                    </label>
+                </div>
+            </div>
+            <div class="form-group inline-check">
+                <label class="@(!Settings.IsEntityParserEnabled ? "disabled-option" : "")">
+                    <input type="checkbox" @bind="Settings.IsEntityParserAutoApplyEnabled" @bind:after="Settings.NotifyStateChanged" disabled="@(!Settings.IsEntityParserEnabled)" />
+                    解析后自动确认并写入世界设定
                 </label>
             </div>
             <div class="form-group">
@@ -83,7 +111,7 @@
             </div>
             <div class="form-group">
                 <label>实体解析 API Key</label>
-                <input class="field" type="password" @bind="Settings.EntityParserApiKey" @onfocusout="Settings.NotifyStateChanged" placeholder="Entity parser API Key" />
+                <input class="field" type="password" @bind="Settings.EntityParserApiKey" @bind:after="Settings.NotifyStateChanged" placeholder="Entity parser API Key" />
             </div>
             <div class="action-bar-small">
                 <button class="button-ghost btn-secondary" @onclick="TestEntityParserConnection" disabled="@(IsTestingEntityParser)">
@@ -102,8 +130,8 @@
                 <span class="section-note">凭据与基础生成节奏</span>
             </div>
             <div class="form-group">
-                <label>全局 API Key</label>
-                <input class="field" type="password" @bind="Settings.ApiKey" @onfocusout="Settings.NotifyStateChanged" placeholder="Your Global API Key" />
+                <label>旧版全局 API Key</label>
+                <input class="field" type="password" @bind="Settings.ApiKey" @onfocusout="Settings.NotifyStateChanged" placeholder="Legacy API Key" />
             </div>
             <div class="form-group">
                 <label>打字机速度 (ms): @Settings.TextSpeed</label>
@@ -262,6 +290,19 @@
 
     .inline-check input {
         accent-color: var(--accent);
+    }
+
+    .parser-options {
+        display: grid;
+        gap: 10px;
+        padding: 12px 14px;
+        border-radius: 14px;
+        background: rgba(255, 255, 255, 0.025);
+        border: 1px solid var(--border-subtle);
+    }
+
+    .disabled-option {
+        opacity: 0.48;
     }
 
     .settings-grid {

@@ -3,6 +3,13 @@ using StoryLoom.Data.Models;
 
 namespace StoryLoom.Services;
 
+public class EntityExtractionException : Exception
+{
+    public EntityExtractionException(string message, Exception innerException) : base(message, innerException)
+    {
+    }
+}
+
 public class EntityExtractionService
 {
     private readonly LlmClient _llmClient;
@@ -20,6 +27,7 @@ public class EntityExtractionService
     {
         if (!_settings.IsEntityParserEnabled || !_settings.IsEntityParserConfigured || string.IsNullOrWhiteSpace(text))
         {
+            _logger.Log($"Entity extraction skipped. Enabled: {_settings.IsEntityParserEnabled}, Configured: {_settings.IsEntityParserConfigured}, TextLength: {text?.Length ?? 0}");
             return new EntityExtractionResult();
         }
 
@@ -39,19 +47,24 @@ public class EntityExtractionService
 
         try
         {
-            var response = await _llmClient.GetCompletionAsync(messages, 0.1, 1200, LlmModelRole.EntityParser);
+            var response = await _llmClient.GetCompletionAsync(messages, 0.1, 24000, LlmModelRole.EntityParser);
+            _logger.Log($"Entity extraction raw response length: {response.Length}");
             var json = ExtractJson(response);
-            var result = JsonSerializer.Deserialize<EntityExtractionResult>(json, new JsonSerializerOptions
-            {
-                PropertyNameCaseInsensitive = true
-            });
+            _logger.Log($"Entity extraction extracted JSON:{Environment.NewLine}{json}");
+            var result = DeserializeExtractionResult(json);
 
-            return Normalize(result ?? new EntityExtractionResult());
+            var normalized = Normalize(result ?? new EntityExtractionResult());
+            _logger.Log($"Entity extraction normalized result. Characters: {normalized.Characters.Count}, Factions: {normalized.Factions.Count}, Items: {normalized.Items.Count}, Scenes: {normalized.Scenes.Count}");
+            LogEntities("characters", normalized.Characters);
+            LogEntities("factions", normalized.Factions);
+            LogEntities("items", normalized.Items);
+            LogEntities("scenes", normalized.Scenes);
+            return normalized;
         }
         catch (Exception ex)
         {
             _logger.LogError(ex, "EntityExtractionService.ExtractAsync");
-            return new EntityExtractionResult();
+            throw new EntityExtractionException("实体解析模型请求失败。", ex);
         }
     }
 
@@ -122,6 +135,93 @@ JSON 格式：
         return trimmed;
     }
 
+    private static EntityExtractionResult? DeserializeExtractionResult(string json)
+    {
+        try
+        {
+            return JsonSerializer.Deserialize<EntityExtractionResult>(json, new JsonSerializerOptions
+            {
+                PropertyNameCaseInsensitive = true
+            });
+        }
+        catch (JsonException ex)
+        {
+            var fixedJson = TryRepairJson(json);
+            if (!string.Equals(fixedJson, json, StringComparison.Ordinal))
+            {
+                return JsonSerializer.Deserialize<EntityExtractionResult>(fixedJson, new JsonSerializerOptions
+                {
+                    PropertyNameCaseInsensitive = true
+                });
+            }
+
+            throw new EntityExtractionException($"实体解析返回的 JSON 格式不完整：{ex.Message}", ex);
+        }
+    }
+
+    private static string TryRepairJson(string json)
+    {
+        var trimmed = json.Trim();
+        var itemIndex = trimmed.IndexOf("\"items\"", StringComparison.OrdinalIgnoreCase);
+        if (itemIndex >= 0)
+        {
+            var repaired = RepairArraySection(trimmed, itemIndex);
+            if (!string.Equals(repaired, trimmed, StringComparison.Ordinal))
+            {
+                return repaired;
+            }
+        }
+
+        return trimmed;
+    }
+
+    private static string RepairArraySection(string json, int sectionIndex)
+    {
+        var openIndex = json.IndexOf('[', sectionIndex);
+        if (openIndex < 0)
+        {
+            return json;
+        }
+
+        var depth = 0;
+        var endIndex = -1;
+        for (var i = openIndex; i < json.Length; i++)
+        {
+            var character = json[i];
+            if (character == '[')
+            {
+                depth++;
+            }
+            else if (character == ']')
+            {
+                depth--;
+                if (depth == 0)
+                {
+                    endIndex = i;
+                    break;
+                }
+            }
+        }
+
+        if (endIndex >= 0)
+        {
+            return json;
+        }
+
+        var repaired = json + "]";
+        if (CountChar(repaired, '{') > CountChar(repaired, '}'))
+        {
+            repaired += "}";
+        }
+
+        return repaired;
+    }
+
+    private static int CountChar(string value, char target)
+    {
+        return value.Count(character => character == target);
+    }
+
     private static EntityExtractionResult Normalize(EntityExtractionResult result)
     {
         result.Characters = NormalizeEntities(result.Characters);
@@ -129,6 +229,20 @@ JSON 格式：
         result.Items = NormalizeEntities(result.Items);
         result.Scenes = NormalizeEntities(result.Scenes);
         return result;
+    }
+
+    private void LogEntities(string type, IReadOnlyCollection<ExtractedEntity> entities)
+    {
+        if (entities.Count == 0)
+        {
+            _logger.Log($"Entity extraction {type}: none");
+            return;
+        }
+
+        foreach (var entity in entities)
+        {
+            _logger.Log($"Entity extraction {type}: {entity.Name}, SummaryLength: {entity.Summary.Length}, DescriptionCount: {entity.Descriptions.Count}");
+        }
     }
 
     private static List<ExtractedEntity> NormalizeEntities(IEnumerable<ExtractedEntity> entities)

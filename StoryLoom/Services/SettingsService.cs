@@ -18,18 +18,23 @@ namespace StoryLoom.Services
         public string StoryModelName { get; set; } = "deepseek-chat"; 
         /// <summary>正文模型 API 的基础地址。</summary>
         public string StoryApiUrl { get; set; } = "https://api.deepseek.com/v1";
+        public string StoryApiKey { get; set; } = "";
 
         /// <summary>提示模型名称 (例如: deepseek-chat)。用于总结、建议等后台任务。</summary>
         public string PromptModelName { get; set; } = "deepseek-chat";
         /// <summary>提示模型 API 的基础地址。</summary>
         public string PromptApiUrl { get; set; } = "https://api.deepseek.com/v1";
+        public string PromptApiKey { get; set; } = "";
 
         public string EntityParserModelName { get; set; } = "deepseek-chat";
         public string EntityParserApiUrl { get; set; } = "https://api.deepseek.com/v1";
         public string EntityParserApiKey { get; set; } = "";
         public bool IsEntityParserEnabled { get; set; } = true;
+        public bool IsEntityParserBeforeSendEnabled { get; set; } = true;
+        public bool IsEntityParserAfterSendEnabled { get; set; } = true;
+        public bool IsEntityParserAutoApplyEnabled { get; set; } = false;
 
-        /// <summary>API 访问密钥 (Key)。所有模型共享此 Key。</summary>
+        /// <summary>API 访问密钥 (Key)。旧配置兼容字段。</summary>
         public string ApiKey { get; set; } = "";
         /// <summary>温度值 (Temperature)，控制生成的随机性 (0.0 - 1.0)。</summary>
         public double Temperature { get; set; } = 0.7;
@@ -56,10 +61,10 @@ namespace StoryLoom.Services
 
         // Helper to check if model is configured
         /// <summary>判断正文模型是否已配置（检查 Key 和 URL 是否非空）。</summary>
-        public bool IsStoryModelConfigured => !string.IsNullOrWhiteSpace(ApiKey) && !string.IsNullOrWhiteSpace(StoryApiUrl);
+        public bool IsStoryModelConfigured => !string.IsNullOrWhiteSpace(StoryApiKey) && !string.IsNullOrWhiteSpace(StoryApiUrl);
 
         /// <summary>判断提示模型是否已配置（检查 Key 和 URL 是否非空）。</summary>
-        public bool IsPromptModelConfigured => !string.IsNullOrWhiteSpace(ApiKey) && !string.IsNullOrWhiteSpace(PromptApiUrl);
+        public bool IsPromptModelConfigured => !string.IsNullOrWhiteSpace(PromptApiKey) && !string.IsNullOrWhiteSpace(PromptApiUrl);
 
         public bool IsEntityParserConfigured => !string.IsNullOrWhiteSpace(EntityParserApiKey) && !string.IsNullOrWhiteSpace(EntityParserApiUrl);
 
@@ -107,12 +112,17 @@ namespace StoryLoom.Services
                     {
                         StoryModelName = !string.IsNullOrEmpty(config.StoryModelName) ? config.StoryModelName : config.ModelName ?? "deepseek-chat";
                         StoryApiUrl = !string.IsNullOrEmpty(config.StoryApiUrl) ? config.StoryApiUrl : config.ApiUrl ?? "https://api.deepseek.com/v1";
+                        StoryApiKey = !string.IsNullOrEmpty(config.StoryApiKey) ? config.StoryApiKey : config.ApiKey;
                         PromptModelName = !string.IsNullOrEmpty(config.PromptModelName) ? config.PromptModelName : StoryModelName;
                         PromptApiUrl = !string.IsNullOrEmpty(config.PromptApiUrl) ? config.PromptApiUrl : StoryApiUrl;
+                        PromptApiKey = !string.IsNullOrEmpty(config.PromptApiKey) ? config.PromptApiKey : config.ApiKey;
                         EntityParserModelName = !string.IsNullOrEmpty(config.EntityParserModelName) ? config.EntityParserModelName : PromptModelName;
                         EntityParserApiUrl = !string.IsNullOrEmpty(config.EntityParserApiUrl) ? config.EntityParserApiUrl : PromptApiUrl;
                         EntityParserApiKey = config.EntityParserApiKey;
                         IsEntityParserEnabled = config.IsEntityParserEnabled;
+                        IsEntityParserBeforeSendEnabled = config.IsEntityParserBeforeSendEnabled;
+                        IsEntityParserAfterSendEnabled = config.IsEntityParserAfterSendEnabled;
+                        IsEntityParserAutoApplyEnabled = config.IsEntityParserAutoApplyEnabled;
 
                         ApiKey = config.ApiKey;
                         Temperature = config.Temperature;
@@ -150,8 +160,17 @@ namespace StoryLoom.Services
                 {
                     StoryModelName = StoryModelName,
                     StoryApiUrl = StoryApiUrl,
+                    StoryApiKey = StoryApiKey,
                     PromptModelName = PromptModelName,
                     PromptApiUrl = PromptApiUrl,
+                    PromptApiKey = PromptApiKey,
+                    EntityParserModelName = EntityParserModelName,
+                    EntityParserApiUrl = EntityParserApiUrl,
+                    EntityParserApiKey = EntityParserApiKey,
+                    IsEntityParserEnabled = IsEntityParserEnabled,
+                    IsEntityParserBeforeSendEnabled = IsEntityParserBeforeSendEnabled,
+                    IsEntityParserAfterSendEnabled = IsEntityParserAfterSendEnabled,
+                    IsEntityParserAutoApplyEnabled = IsEntityParserAutoApplyEnabled,
                     ApiKey = ApiKey,
                     Temperature = Temperature,
                     MaxContextWindow = MaxContextWindow,
@@ -189,12 +208,17 @@ namespace StoryLoom.Services
 
             public string StoryModelName { get; set; } = "deepseek-chat";
             public string StoryApiUrl { get; set; } = "https://api.deepseek.com/v1";
+            public string StoryApiKey { get; set; } = "";
             public string PromptModelName { get; set; } = "deepseek-chat";
             public string PromptApiUrl { get; set; } = "https://api.deepseek.com/v1";
+            public string PromptApiKey { get; set; } = "";
             public string EntityParserModelName { get; set; } = "deepseek-chat";
             public string EntityParserApiUrl { get; set; } = "https://api.deepseek.com/v1";
             public string EntityParserApiKey { get; set; } = "";
             public bool IsEntityParserEnabled { get; set; } = true;
+            public bool IsEntityParserBeforeSendEnabled { get; set; } = true;
+            public bool IsEntityParserAfterSendEnabled { get; set; } = true;
+            public bool IsEntityParserAutoApplyEnabled { get; set; } = false;
             public string ApiKey { get; set; } = "";
             public double Temperature { get; set; } = 0.7;
             public int MaxContextWindow { get; set; } = 4096;

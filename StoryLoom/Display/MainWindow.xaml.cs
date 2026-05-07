@@ -27,6 +27,7 @@ public partial class MainWindow : Window
         serviceCollection.AddSingleton<Services.ContextBuilderService>();
         serviceCollection.AddSingleton<Services.EntityExtractionService>();
         serviceCollection.AddSingleton<Services.EntityMergeService>();
+        serviceCollection.AddSingleton<Services.EntityChangeReviewService>();
         serviceCollection.AddSingleton<Services.EntityExtractionQueue>();
         serviceCollection.AddSingleton<Services.ToastService>();
         serviceCollection.AddSingleton<Services.AppControlService>();
