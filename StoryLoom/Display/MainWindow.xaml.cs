@@ -1,5 +1,8 @@
 using System.Windows;
 using Microsoft.Extensions.DependencyInjection;
+using StoryLoom.Agents.Core;
+using StoryLoom.Agents.Internal;
+using StoryLoom.Agents.SemanticKernel;
 
 namespace StoryLoom;
 
@@ -31,6 +34,14 @@ public partial class MainWindow : Window
         serviceCollection.AddSingleton<Services.EntityExtractionQueue>();
         serviceCollection.AddSingleton<Services.ToastService>();
         serviceCollection.AddSingleton<Services.AppControlService>();
+        serviceCollection.AddSingleton<SemanticKernelAgentFactory>();
+        serviceCollection.AddSingleton<IStoryAgent, DirectorStoryAgent>();
+        serviceCollection.AddSingleton<IStoryAgent, WorldStateStoryAgent>();
+        serviceCollection.AddSingleton<IStoryAgent, MemoryStoryAgent>();
+        serviceCollection.AddSingleton<IStoryAgent, ContinuityStoryAgent>();
+        serviceCollection.AddSingleton<IStoryAgent, ForeshadowingStoryAgent>();
+        serviceCollection.AddSingleton<IStoryAgent, PromptComposerStoryAgent>();
+        serviceCollection.AddSingleton<StoryAgentManager>();
         
         // HTTP 客户端和 Transient (瞬态) 服务
         serviceCollection.AddHttpClient<Services.LlmClient>();
