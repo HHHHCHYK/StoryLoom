@@ -48,7 +48,18 @@ secrets.json
 ## [日志与临时数据]
 *.log
 *.tmp
+Config/
+Saves/
 
 ## [Agents 工作区]
 # AI agents 的临时计划、草稿和工作记录
 .agents/
+
+## [Local toolchain]
+# Local .NET SDK installed by dotnet-install for this checkout.
+.dotnet/
+.tools/
+
+## [Build artifacts]
+# Verification/publish outputs should be regenerated locally, not committed.
+artifacts/

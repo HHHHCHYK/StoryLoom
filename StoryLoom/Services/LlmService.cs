@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 using System.Text.Json;
+using StoryLoom.Data.Models;
 
 namespace StoryLoom.Services
 {
@@ -150,13 +151,19 @@ namespace StoryLoom.Services
         /// Starts the story generation process.
         /// Constructs the system prompt using templates and streams the response.
         /// </summary>
-        public IAsyncEnumerable<string> StartGenerateAsync(List<ChatMessage> historyMessages, string background, string protagonist, string summary, string? actionType = null)
+        public IAsyncEnumerable<string> StartGenerateAsync(
+            List<ChatMessage> historyMessages,
+            string background,
+            string protagonist,
+            string summary,
+            string? actionType = null,
+            WritingSkillSnapshot? activeWritingSkill = null)
         {
             _logger.Log($"[{nameof(LlmService)}] {nameof(StartGenerateAsync)} called");
             // unique service method for "Action" logic (Story Generation)
             
             // 1. Construct System Prompt
-            var systemPrompt = PromptTemplates.StoryGenerationSystemPrompt(background, protagonist, summary, actionType);
+            var systemPrompt = PromptTemplates.StoryGenerationSystemPrompt(background, protagonist, summary, actionType, activeWritingSkill);
             
             // 2. Build full context
             var fullContext = new List<ChatMessage>();
@@ -165,6 +172,38 @@ namespace StoryLoom.Services
 
             // 3. Stream
             return _llmClient.StreamCompletionAsync(fullContext, _settings.Temperature, _settings.MaxContextWindow, isPromptModel: false);
+        }
+
+        public async Task<WritingSkillSnapshot?> EvolveWritingSkillAsync(WritingSkillSnapshot current, string evolutionGoal)
+        {
+            _logger.Log($"Evolving writing skill '{current.Name}'...");
+
+            var prompt = PromptTemplates.EvolveWritingSkill(current, evolutionGoal);
+            var messages = new List<ChatMessage>
+            {
+                new ChatMessage { Role = "user", Content = prompt }
+            };
+
+            try
+            {
+                var content = await _llmClient.GetCompletionAsync(messages, 0.6, 4096, isPromptModel: true);
+                var cleanContent = content.Trim();
+                if (cleanContent.StartsWith("```json"))
+                {
+                    cleanContent = cleanContent.Replace("```json", "").Replace("```", "").Trim();
+                }
+                else if (cleanContent.StartsWith("```"))
+                {
+                    cleanContent = cleanContent.Replace("```", "").Trim();
+                }
+
+                return JsonSerializer.Deserialize<WritingSkillSnapshot>(cleanContent);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "EvolveWritingSkillAsync");
+                return null;
+            }
         }
     }
 

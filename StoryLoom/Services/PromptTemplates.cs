@@ -1,4 +1,7 @@
 using System.Collections.Generic;
+using System.Security;
+using System.Text.Json;
+using StoryLoom.Data.Models;
 
 namespace StoryLoom.Services
 {
@@ -8,6 +11,27 @@ namespace StoryLoom.Services
     /// </summary>
     public static class PromptTemplates
     {
+        private static string EscapePromptXml(string value)
+        {
+            return SecurityElement.Escape(value ?? string.Empty) ?? string.Empty;
+        }
+
+        private static string FormatWritingSkill(WritingSkillSnapshot? writingSkill)
+        {
+            if (writingSkill == null) return string.Empty;
+
+            return "\n\n<WritingSkill>\n" +
+                $"Name: {EscapePromptXml(writingSkill.Name)}\n" +
+                $"Purpose: {EscapePromptXml(writingSkill.Purpose)}\n" +
+                $"StyleDescription: {EscapePromptXml(writingSkill.StyleDescription)}\n" +
+                $"WritingRules: {EscapePromptXml(writingSkill.WritingRules)}\n" +
+                $"WritingProcess: {EscapePromptXml(writingSkill.WritingProcess)}\n" +
+                $"ForbiddenPatterns: {EscapePromptXml(writingSkill.ForbiddenPatterns)}\n" +
+                $"ExampleText: {EscapePromptXml(writingSkill.ExampleText)}\n" +
+                $"Notes: {EscapePromptXml(writingSkill.Notes)}\n" +
+                "</WritingSkill>";
+        }
+
         /// <summary>
         /// 用于测试连接的简单提示词。
         /// </summary>
@@ -102,7 +126,12 @@ namespace StoryLoom.Services
         /// <param name="protagonist">主角设定。</param>
         /// <param name="summary">之前的剧情摘要（通常是压缩后的事实和状态）。</param>
         /// <returns>构建好的系统提示词字符串。</returns>
-        public static string StoryGenerationSystemPrompt(string background, string protagonist, string summary, string? actionType = null)
+        public static string StoryGenerationSystemPrompt(
+            string background,
+            string protagonist,
+            string summary,
+            string? actionType = null,
+            WritingSkillSnapshot? activeWritingSkill = null)
         {
             // 1. 强化角色定义、行为准则、语言和格式控制
             var directives = 
@@ -126,6 +155,8 @@ namespace StoryLoom.Services
                 $"<WorldBackground>\n{background}\n</WorldBackground>\n\n" +
                 $"<Protagonist>\n{protagonist}\n</Protagonist>";
 
+            systemContent += FormatWritingSkill(activeWritingSkill);
+
             // 3. 动态追加摘要（作为当前故事状态）
             if (!string.IsNullOrWhiteSpace(summary))
             {
@@ -136,6 +167,29 @@ namespace StoryLoom.Services
             systemContent += "\n\nCRITICAL: Respond ONLY with the continuation of the story in Chinese. Output the pure narrative text and immediately STOP. Do NOT provide any choices, options, or prompt the user. Do not break character, and do not add out-of-character commentary.";
 
             return systemContent;
+        }
+
+        public static string EvolveWritingSkill(WritingSkillSnapshot current, string evolutionGoal)
+        {
+            var currentJson = JsonSerializer.Serialize(current, new JsonSerializerOptions { WriteIndented = true });
+
+            return "You are helping improve a reusable writing skill for an AI fiction writing app.\n" +
+                "Return ONLY a valid JSON object matching this schema exactly:\n" +
+                "{\n" +
+                "  \"Name\": \"\",\n" +
+                "  \"Purpose\": \"\",\n" +
+                "  \"StyleDescription\": \"\",\n" +
+                "  \"WritingRules\": \"\",\n" +
+                "  \"WritingProcess\": \"\",\n" +
+                "  \"ForbiddenPatterns\": \"\",\n" +
+                "  \"ExampleText\": \"\",\n" +
+                "  \"Notes\": \"\"\n" +
+                "}\n\n" +
+                "Do not include markdown fences, explanations, comments, or extra fields.\n" +
+                "Preserve useful existing constraints unless the evolution goal explicitly changes them.\n" +
+                "The result may be written in Chinese when the current skill is Chinese.\n\n" +
+                $"EvolutionGoal:\n{evolutionGoal}\n\n" +
+                $"CurrentWritingSkill:\n{currentJson}";
         }
     }
 }

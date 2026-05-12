@@ -1,0 +1,458 @@
+@page "/skills"
+@page "/writing-skills"
+@using System.Text
+@using StoryLoom.Data.Models
+@inject WritingSkillService WritingSkillService
+@inject ToastService Toast
+@implements IDisposable
+
+<div class="page-shell writing-skills-page">
+    <div class="page-header">
+        <div class="page-title-group">
+            <span class="page-eyebrow">Skill Workspace</span>
+            <h1 class="page-title">Skill</h1>
+            <p class="page-subtitle">管理当前作品的能力包。当前已支持写作 Skill，后续可扩展更多 Skill 类型。</p>
+        </div>
+    </div>
+
+    <div class="skill-type-bar surface">
+        <button type="button" class="skill-type-tab active">
+            <span>写作 Skill</span>
+            <small>风格、规范、流程与 AI 进化</small>
+        </button>
+        <button type="button" class="skill-type-tab disabled" disabled>
+            <span>更多 Skill</span>
+            <small>预留扩展入口</small>
+        </button>
+    </div>
+
+    <div class="skill-layout">
+        <aside class="surface skill-list-panel">
+            <div class="panel-header">
+                <h3>Skill 列表</h3>
+                <button type="button" class="button btn-small" @onclick="CreateNewSkill">新建</button>
+            </div>
+
+            @if (!WritingSkillService.Library.Skills.Any())
+            {
+                <div class="empty-state">当前作品还没有写作 Skill。</div>
+            }
+            else
+            {
+                @foreach (var skill in WritingSkillService.Library.Skills.OrderByDescending(item => item.UpdatedAt))
+                {
+                    <button type="button" class="@GetSkillClass(skill)" @onclick="() => SelectSkill(skill.Id)">
+                        <span>@(skill.CurrentSnapshot?.Name ?? skill.Name)</span>
+                        <small>
+                            @(WritingSkillService.Library.ActiveSkillId == skill.Id ? "当前启用" : $"v{skill.CurrentVersion?.VersionNumber ?? 0}")
+                        </small>
+                    </button>
+                }
+            }
+        </aside>
+
+        <section class="surface skill-editor-panel">
+            <h3>编辑器</h3>
+
+            @if (SelectedSkill == null || Draft == null)
+            {
+                <div class="empty-state">选择或新建一个写作 Skill 后开始编辑。</div>
+            }
+            else
+            {
+                <label>名称</label>
+                <input class="field" @bind="Draft.Name" />
+
+                <label>用途/适用场景</label>
+                <textarea class="field-area" rows="3" @bind="Draft.Purpose"></textarea>
+
+                <label>风格描述</label>
+                <textarea class="field-area" rows="4" @bind="Draft.StyleDescription"></textarea>
+
+                <label>写作规范</label>
+                <textarea class="field-area" rows="4" @bind="Draft.WritingRules"></textarea>
+
+                <label>写作流程/方法</label>
+                <textarea class="field-area" rows="4" @bind="Draft.WritingProcess"></textarea>
+
+                <label>禁忌事项</label>
+                <textarea class="field-area" rows="4" @bind="Draft.ForbiddenPatterns"></textarea>
+
+                <label>示例文本</label>
+                <textarea class="field-area" rows="5" @bind="Draft.ExampleText"></textarea>
+
+                <label>备注</label>
+                <textarea class="field-area" rows="3" @bind="Draft.Notes"></textarea>
+
+                <label>版本备注</label>
+                <input class="field" @bind="VersionNote" />
+
+                <div class="editor-actions">
+                    <button type="button" class="button" @onclick="SaveManualVersion">保存为新版本</button>
+                    <button type="button" class="button-ghost" @onclick="ResetDraft">重置</button>
+                    <button type="button" class="button-ghost" @onclick="SetActive" disabled="@(WritingSkillService.Library.ActiveSkillId == SelectedSkillId)">设为当前</button>
+                    <button type="button" class="button-danger" @onclick="DeleteSelected">删除</button>
+                </div>
+            }
+        </section>
+
+        <aside class="surface skill-version-panel">
+            <h3>版本与进化</h3>
+
+            @if (SelectedSkill == null)
+            {
+                <div class="empty-state">选择一个 Skill 后查看版本和进化候选。</div>
+            }
+            else
+            {
+                <label>进化目标</label>
+                <textarea class="field-area" rows="3" @bind="EvolutionGoal"></textarea>
+                <button type="button" class="button" @onclick="GenerateEvolution" disabled="@(IsEvolving || string.IsNullOrWhiteSpace(EvolutionGoal))">
+                    @(IsEvolving ? "生成中" : "生成候选")
+                </button>
+
+                @if (WritingSkillService.EvolutionCandidate != null)
+                {
+                    <div class="candidate-preview">
+                        <h4>候选版本</h4>
+                        <pre>@FormatSnapshot(WritingSkillService.EvolutionCandidate)</pre>
+                        <div class="version-actions">
+                            <button type="button" class="button" @onclick="ConfirmEvolution">确认保存</button>
+                            <button type="button" class="button-ghost" @onclick="CancelEvolution">取消</button>
+                        </div>
+                    </div>
+                }
+
+                <div class="version-list">
+                    @foreach (var version in SelectedSkill.Versions.OrderByDescending(item => item.VersionNumber))
+                    {
+                        <div class="version-card">
+                            <strong>v@version.VersionNumber · @GetSourceLabel(version.Source)</strong>
+                            <small>@version.CreatedAt.ToString("yyyy-MM-dd HH:mm")</small>
+                            @if (!string.IsNullOrWhiteSpace(version.UserNote))
+                            {
+                                <div>@version.UserNote</div>
+                            }
+                            <div class="version-actions">
+                                <button type="button" class="button-ghost" @onclick="() => ViewVersion(version)">查看</button>
+                                <button type="button" class="button-ghost" @onclick="() => Rollback(version.Id)">回滚到此版本</button>
+                            </div>
+                        </div>
+                    }
+                </div>
+            }
+        </aside>
+    </div>
+</div>
+
+@code {
+    private string SelectedSkillId = string.Empty;
+    private WritingSkillSnapshot Draft = new();
+    private string VersionNote = string.Empty;
+    private string EvolutionGoal = string.Empty;
+    private bool IsEvolving = false;
+
+    private WritingSkillProfile? SelectedSkill =>
+        WritingSkillService.Library.Skills.FirstOrDefault(skill => skill.Id == SelectedSkillId);
+
+    protected override void OnInitialized()
+    {
+        WritingSkillService.OnChanged += OnWritingSkillChanged;
+        SelectedSkillId = WritingSkillService.ActiveSkill?.Id
+            ?? WritingSkillService.Library.Skills.FirstOrDefault()?.Id
+            ?? string.Empty;
+        ResetDraft();
+    }
+
+    public void Dispose()
+    {
+        WritingSkillService.OnChanged -= OnWritingSkillChanged;
+    }
+
+    private void OnWritingSkillChanged()
+    {
+        InvokeAsync(() =>
+        {
+            if (!string.IsNullOrWhiteSpace(SelectedSkillId) && SelectedSkill == null)
+            {
+                SelectedSkillId = WritingSkillService.ActiveSkill?.Id
+                    ?? WritingSkillService.Library.Skills.FirstOrDefault()?.Id
+                    ?? string.Empty;
+                ResetDraft();
+            }
+
+            StateHasChanged();
+        });
+    }
+
+    private void SelectSkill(string skillId)
+    {
+        SelectedSkillId = skillId;
+        ResetDraft();
+    }
+
+    private async Task CreateNewSkill()
+    {
+        var skill = await WritingSkillService.CreateSkillAsync(new WritingSkillSnapshot { Name = "新写作 Skill" }, "初始版本");
+        SelectedSkillId = skill.Id;
+        ResetDraft();
+    }
+
+    private void ResetDraft()
+    {
+        Draft = SelectedSkill?.CurrentSnapshot?.Clone() ?? new WritingSkillSnapshot();
+        VersionNote = string.Empty;
+    }
+
+    private async Task SaveManualVersion()
+    {
+        if (SelectedSkill == null) return;
+
+        await WritingSkillService.SaveManualVersionAsync(SelectedSkill.Id, Draft.Clone(), VersionNote);
+        ResetDraft();
+    }
+
+    private async Task SetActive()
+    {
+        if (SelectedSkill == null) return;
+
+        await WritingSkillService.SetActiveSkillAsync(SelectedSkill.Id);
+    }
+
+    private async Task DeleteSelected()
+    {
+        if (SelectedSkill == null) return;
+
+        await WritingSkillService.DeleteSkillAsync(SelectedSkill.Id);
+        SelectedSkillId = WritingSkillService.ActiveSkill?.Id
+            ?? WritingSkillService.Library.Skills.FirstOrDefault()?.Id
+            ?? string.Empty;
+        ResetDraft();
+    }
+
+    private async Task Rollback(string versionId)
+    {
+        if (SelectedSkill == null) return;
+
+        await WritingSkillService.RollbackToVersionAsync(SelectedSkill.Id, versionId, "从历史版本回滚");
+        ResetDraft();
+    }
+
+    private void ViewVersion(WritingSkillVersion version)
+    {
+        Draft = version.Snapshot.Clone();
+        VersionNote = $"基于 v{version.VersionNumber}";
+    }
+
+    private async Task GenerateEvolution()
+    {
+        if (SelectedSkill == null || string.IsNullOrWhiteSpace(EvolutionGoal)) return;
+
+        IsEvolving = true;
+        try
+        {
+            var candidate = await WritingSkillService.GenerateEvolutionCandidateAsync(SelectedSkill.Id, EvolutionGoal);
+            if (candidate == null)
+            {
+                Toast.ShowToast("AI 进化候选生成失败，请调整目标后重试。");
+            }
+        }
+        finally
+        {
+            IsEvolving = false;
+        }
+    }
+
+    private async Task ConfirmEvolution()
+    {
+        if (SelectedSkill == null) return;
+
+        await WritingSkillService.ConfirmEvolutionCandidateAsync(SelectedSkill.Id, $"AI 进化：{EvolutionGoal}");
+        EvolutionGoal = string.Empty;
+        ResetDraft();
+    }
+
+    private void CancelEvolution()
+    {
+        WritingSkillService.CancelEvolutionCandidate();
+    }
+
+    private static string FormatSnapshot(WritingSkillSnapshot snapshot)
+    {
+        var builder = new StringBuilder();
+        builder.AppendLine($"名称：{snapshot.Name}");
+        builder.AppendLine($"用途：{snapshot.Purpose}");
+        builder.AppendLine();
+        builder.AppendLine("风格描述：");
+        builder.AppendLine(snapshot.StyleDescription);
+        builder.AppendLine();
+        builder.AppendLine("写作规范：");
+        builder.AppendLine(snapshot.WritingRules);
+        builder.AppendLine();
+        builder.AppendLine("写作流程：");
+        builder.AppendLine(snapshot.WritingProcess);
+        builder.AppendLine();
+        builder.AppendLine("禁忌事项：");
+        builder.AppendLine(snapshot.ForbiddenPatterns);
+        builder.AppendLine();
+        builder.AppendLine("示例文本：");
+        builder.AppendLine(snapshot.ExampleText);
+        builder.AppendLine();
+        builder.AppendLine("备注：");
+        builder.AppendLine(snapshot.Notes);
+        return builder.ToString();
+    }
+
+    private string GetSkillClass(WritingSkillProfile skill) =>
+        skill.Id == SelectedSkillId ? "skill-list-item selected" : "skill-list-item";
+
+    private static string GetSourceLabel(WritingSkillVersionSource source) => source switch
+    {
+        WritingSkillVersionSource.Initial => "初始",
+        WritingSkillVersionSource.ManualEdit => "手动编辑",
+        WritingSkillVersionSource.AiEvolution => "AI 进化",
+        WritingSkillVersionSource.Rollback => "回滚",
+        _ => "未知"
+    };
+}
+
+<style>
+    .writing-skills-page {
+        height: 100%;
+        overflow-y: auto;
+    }
+
+    .skill-layout {
+        display: grid;
+        grid-template-columns: minmax(220px, 0.8fr) minmax(360px, 1.4fr) minmax(280px, 1fr);
+        gap: 18px;
+        align-items: start;
+    }
+
+    .skill-type-bar {
+        display: flex;
+        gap: 10px;
+        padding: 10px;
+        margin-bottom: 18px;
+        min-height: 86px;
+        flex: 0 0 auto;
+        overflow-x: auto;
+        overflow-y: hidden;
+    }
+
+    .skill-type-tab {
+        border: 1px solid #242424;
+        background: #101010;
+        color: #f5f5f5;
+        border-radius: 12px;
+        min-width: 180px;
+        min-height: 64px;
+        flex: 0 0 auto;
+        padding: 12px 14px;
+        display: flex;
+        flex-direction: column;
+        gap: 6px;
+        align-items: flex-start;
+        text-align: left;
+        font-family: inherit;
+    }
+
+    .skill-type-tab span {
+        font-weight: 700;
+    }
+
+    .skill-type-tab small {
+        color: #9f9f9f;
+        line-height: 1.4;
+    }
+
+    .skill-type-tab.active {
+        border-color: #ffffff;
+        background: #181818;
+    }
+
+    .skill-type-tab.disabled {
+        opacity: 0.55;
+    }
+
+    .skill-list-panel,
+    .skill-editor-panel,
+    .skill-version-panel {
+        padding: 20px;
+        display: flex;
+        flex-direction: column;
+        gap: 12px;
+        min-width: 0;
+    }
+
+    .panel-header,
+    .editor-actions,
+    .version-actions {
+        display: flex;
+        gap: 10px;
+        align-items: center;
+        justify-content: space-between;
+        flex-wrap: wrap;
+    }
+
+    .skill-list-item {
+        border: 1px solid #242424;
+        background: #101010;
+        color: #f5f5f5;
+        border-radius: 12px;
+        min-height: 54px;
+        padding: 10px 12px;
+        display: flex;
+        justify-content: space-between;
+        gap: 10px;
+        cursor: pointer;
+    }
+
+    .skill-list-item.selected {
+        border-color: #ffffff;
+        background: #181818;
+    }
+
+    .candidate-preview,
+    .version-card {
+        border: 1px solid #242424;
+        border-radius: 12px;
+        padding: 12px;
+        background: #101010;
+    }
+
+    .candidate-preview pre {
+        white-space: pre-wrap;
+        word-break: break-word;
+        color: #d6d6d6;
+        max-height: 360px;
+        overflow: auto;
+    }
+
+    .version-list {
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+    }
+
+    .empty-state {
+        color: #9f9f9f;
+        padding: 20px 0;
+    }
+
+    .skill-editor-panel label,
+    .skill-version-panel label {
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+        color: #cfcfcf;
+        font-size: 13px;
+        font-weight: 600;
+    }
+
+    @@media (max-width: 1100px) {
+        .skill-layout {
+            grid-template-columns: 1fr;
+        }
+    }
+</style>
