@@ -13,6 +13,7 @@ namespace StoryLoom.Services
         private readonly LlmService _llmService;
         private readonly SettingsService _settingsService;
         private readonly EntityExtractionQueue _entityExtractionQueue;
+        private readonly WritingSkillService _writingSkillService;
         private readonly LogService _logger;
         // Persistence Constants
         private const string SavesDirectory = "Saves";
@@ -24,11 +25,17 @@ namespace StoryLoom.Services
 
         public event Action? OnConversationUpdated;
 
-        public ConversationService(LlmService llmService, SettingsService settingsService, EntityExtractionQueue entityExtractionQueue, LogService logger)
+        public ConversationService(
+            LlmService llmService,
+            SettingsService settingsService,
+            EntityExtractionQueue entityExtractionQueue,
+            WritingSkillService writingSkillService,
+            LogService logger)
         {
             _llmService = llmService;
             _settingsService = settingsService;
             _entityExtractionQueue = entityExtractionQueue;
+            _writingSkillService = writingSkillService;
             _logger = logger;
             _entityExtractionQueue.OnEntitiesAutoApplied += SaveCurrentStateAsync;
             // LoadHistory(); // Removed legacy single-file load
@@ -84,6 +91,8 @@ namespace StoryLoom.Services
             // 3. Create Directory
             string savePath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, SavesDirectory, saveName);
             Directory.CreateDirectory(savePath);
+
+            await _writingSkillService.StartNewLibraryAsync(saveName);
 
             // 4. Update Global Config
             _settingsService.LastSaveName = saveName;
@@ -159,6 +168,8 @@ namespace StoryLoom.Services
                         _settingsService.NotifyStateChanged();
                     }
                 }
+
+                await _writingSkillService.LoadLibraryAsync(saveName);
 
                 NotifyUpdate();
             }

@@ -2,6 +2,7 @@
 @inject ConversationService ConversationService
 @inject LlmService LlmService
 @inject SettingsService SettingsService
+@inject WritingSkillService WritingSkillService
 @inject LogService Logger
 @inject NavigationManager Nav
 @inject ToastService Toast
@@ -68,6 +69,25 @@
 
     <div class="input-area">
         <div class="toolbar">
+            <div class="skill-menu-container menu-anchor">
+                <button class="button-ghost btn-tool btn-skill" @onclick="ToggleSkillMenu" disabled="@IsGenerating">
+                    Skill: @ActiveSkillLabel
+                </button>
+                @if (IsSkillMenuOpen)
+                {
+                    <div class="dropdown-menu skill-menu">
+                        <button @onclick='() => SelectWritingSkill("")'>无 Skill</button>
+                        @foreach (var skill in WritingSkillService.Library.Skills)
+                        {
+                            <button @onclick="() => SelectWritingSkill(skill.Id)">
+                                @(skill.CurrentSnapshot?.Name ?? skill.Name)
+                            </button>
+                        }
+                        <button @onclick="OpenWritingSkillsPage">管理 Skill</button>
+                    </div>
+                }
+            </div>
+
             <div class="action-menu-container menu-anchor">
                 <button class="button-ghost btn-tool" @onclick="ToggleActionMenu">
                     @(string.IsNullOrEmpty(SelectedAction) ? "模式" : SelectedAction)
@@ -114,7 +134,7 @@
                 }
             </div>
             
-            @if (IsActionMenuOpen || IsSuggestionMenuOpen)
+            @if (IsSkillMenuOpen || IsActionMenuOpen || IsSuggestionMenuOpen)
             {
                 <div class="menu-backdrop" @onclick="CloseMenus"></div>
             }
@@ -161,12 +181,14 @@
         }
 
         ConversationService.OnConversationUpdated += OnConversationUpdated;
+        WritingSkillService.OnChanged += OnWritingSkillChanged;
         ScrollToBottom();
     }
 
     public void Dispose()
     {
         ConversationService.OnConversationUpdated -= OnConversationUpdated;
+        WritingSkillService.OnChanged -= OnWritingSkillChanged;
     }
 
     private void OnConversationUpdated()
@@ -175,6 +197,11 @@
             StateHasChanged();
             ScrollToBottom();
         });
+    }
+
+    private void OnWritingSkillChanged()
+    {
+        InvokeAsync(StateHasChanged);
     }
 
     private async Task UpdateTitle(ChangeEventArgs e)
@@ -215,10 +242,11 @@
             var background = SettingsService.Background;
             var protagonist = SettingsService.Protagonist;
             var summary = ConversationService.CurrentConversation.Summary;
+            var activeWritingSkill = WritingSkillService.ActiveSkillSnapshot;
 
             // 3. Stream Response using new StartGenerateAsync
             // Pass the effective action (if any) to guide generation
-            await foreach (var token in LlmService.StartGenerateAsync(history, background, protagonist, summary, GetEffectiveAction()))
+            await foreach (var token in LlmService.StartGenerateAsync(history, background, protagonist, summary, GetEffectiveAction(), activeWritingSkill))
             {
                 // Push token to buffer instead of directly appending
                 _typewriterBuffer.Append(token);
@@ -373,13 +401,37 @@
     private bool IsActionMenuOpen = false;
     private string SelectedAction = "模式";
     
+    private bool IsSkillMenuOpen = false;
     private bool IsSuggestionMenuOpen = false;
     private bool IsLoadingSuggestions = false;
     private List<string> Suggestions = new List<string>();
 
+    private string ActiveSkillLabel =>
+        WritingSkillService.ActiveSkillSnapshot?.Name is { Length: > 0 } name ? name : "无 Skill";
+
+    private void ToggleSkillMenu()
+    {
+        IsSkillMenuOpen = !IsSkillMenuOpen;
+        IsActionMenuOpen = false;
+        IsSuggestionMenuOpen = false;
+    }
+
+    private async Task SelectWritingSkill(string skillId)
+    {
+        await WritingSkillService.SetActiveSkillAsync(skillId);
+        IsSkillMenuOpen = false;
+    }
+
+    private void OpenWritingSkillsPage()
+    {
+        IsSkillMenuOpen = false;
+        Nav.NavigateTo("skills");
+    }
+
     private void ToggleActionMenu()
     {
         IsActionMenuOpen = !IsActionMenuOpen;
+        IsSkillMenuOpen = false;
         IsSuggestionMenuOpen = false; 
     }
 
@@ -399,6 +451,7 @@
     private async Task ToggleSuggestionMenu()
     {
         IsSuggestionMenuOpen = !IsSuggestionMenuOpen;
+        IsSkillMenuOpen = false;
         IsActionMenuOpen = false;
         
         if (IsSuggestionMenuOpen)
@@ -433,6 +486,7 @@
 
     private void CloseMenus()
     {
+        IsSkillMenuOpen = false;
         IsActionMenuOpen = false;
         IsSuggestionMenuOpen = false;
     }
@@ -637,6 +691,16 @@
 
     .btn-tool {
         min-width: 96px;
+    }
+
+    .btn-skill {
+        max-width: 220px;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+
+    .skill-menu {
+        min-width: 220px;
     }
 
     .spacer { flex: 1; }
